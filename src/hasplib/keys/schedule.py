@@ -132,6 +132,18 @@ class KeyingSchedule:
         self._entries[symbol.render()] = updated
         return updated
 
+    def load(self, entry: ScheduleEntry) -> ScheduleEntry:
+        """Put a line back exactly as it was stored, checking nothing.
+
+        A schedule coming off the database has already been through add and
+        assign once, years ago, under whatever policy was current then. Making
+        it pass today's rules on the way in would mean refusing to open half
+        the systems on campus, so loading is deliberately dumb and the
+        review functions are where the shop finds out what is wrong.
+        """
+        self._entries[entry.symbol.render()] = entry
+        return entry
+
     def bitting_of(self, symbol: KeySymbol) -> Bitting | None:
         return self.entry(symbol).bitting
 
