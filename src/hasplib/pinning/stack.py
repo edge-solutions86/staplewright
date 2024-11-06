@@ -12,6 +12,9 @@ one step splits are refused and systems get progressed two steps at a time. A
 column that already reaches the shear line before the driver goes on has no
 room for a driver at all, which happens when a chamber is asked to break at
 too many depths at once.
+
+A column is a column whether the cylinder has one shear line or two, so the
+stacking arithmetic lives here once and the core code inherits it.
 """
 
 from __future__ import annotations
@@ -69,10 +72,32 @@ class PinningSpec:
             )
         return self.chart.increment_mils * (deeper - shallower)
 
+    def wafers_between(self, depths: Sequence[int]) -> tuple[int, ...]:
+        """Every wafer a run of breaks needs, shallow to deep.
+
+        Refuses any wafer the shop will not stand up in a chamber, which is
+        the check that stops a one step split reaching the bench.
+        """
+        wafers: list[int] = []
+        for shallower, deeper in zip(depths, depths[1:], strict=False):
+            thickness = self.wafer(shallower, deeper)
+            if thickness < self.min_wafer_mils:
+                raise PinningError(
+                    "that wafer is too thin to stand up in the chamber",
+                    thickness=thickness,
+                    thinnest=self.min_wafer_mils,
+                )
+            wafers.append(thickness)
+        return tuple(wafers)
+
 
 @dataclass(frozen=True)
 class PinStack:
-    """One chamber, from the plug floor up."""
+    """One chamber, from the plug floor up.
+
+    The wafers are in order from the bottom pin toward the driver, and the
+    heights they break at are just the running total.
+    """
 
     chamber: int
     bottom_mils: int
@@ -128,17 +153,10 @@ def build_stack(
     if not ordered:
         raise PinningError("a chamber breaks somewhere", chamber=chamber)
     bottom = spec.bottom_pin(ordered[0])
-    wafers: list[int] = []
-    for shallower, deeper in zip(ordered, ordered[1:], strict=False):
-        thickness = spec.wafer(shallower, deeper)
-        if thickness < spec.min_wafer_mils:
-            raise PinningError(
-                "that wafer is too thin to stand up in the chamber",
-                chamber=chamber,
-                thickness=thickness,
-                thinnest=spec.min_wafer_mils,
-            )
-        wafers.append(thickness)
+    try:
+        wafers = spec.wafers_between(ordered)
+    except PinningError as thin:
+        raise PinningError(thin.message, chamber=chamber, **thin.facts) from None
     driver = spec.column_mils - bottom - sum(wafers)
     if driver < spec.min_driver_mils:
         raise PinningError(
@@ -147,14 +165,4 @@ def build_stack(
             driver=driver,
             shortest=spec.min_driver_mils,
         )
-    return PinStack(chamber, bottom, tuple(wafers), driver, driver_profile)
-
-
-def stack_for_keys(
-    spec: PinningSpec,
-    chamber: int,
-    breaks: Sequence[int],
-    driver_profile: DriverProfile = DriverProfile.STANDARD,
-) -> PinStack:
-    """The same thing, named the way the pinning sheet asks for it."""
-    return build_stack(spec, chamber, breaks, driver_profile)
+    return PinStack(chamber, bottom, wafers, driver, driver_profile)

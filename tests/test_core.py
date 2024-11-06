@@ -46,8 +46,9 @@ def test_a_control_gap_thinner_than_a_wafer_is_refused():
 
 def test_a_core_chamber_carries_a_control_wafer_even_with_one_key():
     stack = build_core_stack(a_spec(), 1, [4], 4)
-    assert stack.wafers_mils == ()
+    assert stack.wafers_mils == (50,)
     assert stack.control_wafer_mils == 50
+    assert stack.operating_breaks == (200,)
     assert stack.piece_count == 3
 
 
@@ -64,7 +65,7 @@ def test_the_control_break_is_above_every_operating_break():
 
 def test_a_mastered_chamber_holds_its_wafers_under_the_control_wafer():
     stack = build_core_stack(a_spec(), 1, [2, 6], 6)
-    assert stack.wafers_mils == (100,)
+    assert stack.wafers_mils == (100, 50)
     assert stack.control_wafer_mils == 50
 
 
@@ -110,7 +111,7 @@ def test_a_whole_core_is_pinned_for_its_keys_and_the_control():
     core = pin_core(a_spec(), [b("2462462"), b("2662462")], b("6666666"))
     assert core.chambers == 7
     assert core.piece_count == 7 * 3 + 1
-    assert core.stack(2).wafers_mils == (50,)
+    assert core.stack(2).wafers_mils == (50, 50)
 
 
 def test_every_row_of_the_core_chart_shows_its_control_wafer():

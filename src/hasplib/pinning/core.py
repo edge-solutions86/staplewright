@@ -14,6 +14,10 @@ operating break at the same cut would sit, and the control cut is squeezed
 from both sides. Too shallow and its break lands on top of the deepest
 operating break with no room for a wafer between them. Too deep and the break
 climbs so high there is nothing left of the chamber to put a driver in.
+
+A core stack is an ordinary stack whose last wafer is the control wafer, so
+the stacking arithmetic comes from the stack module and only the two shear
+lines are new here.
 """
 
 from __future__ import annotations
@@ -23,8 +27,8 @@ from dataclasses import dataclass
 
 from hasplib.errors import PinningError
 from hasplib.keys.bitting import Bitting
-from hasplib.pinning.segments import DriverProfile, PinSegment, SegmentKind
-from hasplib.pinning.stack import PinningSpec
+from hasplib.pinning.segments import DriverProfile, PinSegment
+from hasplib.pinning.stack import PinningSpec, PinStack
 
 
 @dataclass(frozen=True)
@@ -58,45 +62,24 @@ class CoreSpec:
 
 
 @dataclass(frozen=True)
-class CoreStack:
-    """One chamber of a core, from the floor to the spring."""
-
-    chamber: int
-    bottom_mils: int
-    wafers_mils: tuple[int, ...]
-    control_wafer_mils: int
-    driver_mils: int
-    driver_profile: DriverProfile = DriverProfile.STANDARD
+class CoreStack(PinStack):
+    """One chamber of a core. The last wafer is the control wafer."""
 
     @property
-    def height_mils(self) -> int:
-        return self.bottom_mils + sum(self.wafers_mils) + self.control_wafer_mils + self.driver_mils
-
-    @property
-    def piece_count(self) -> int:
-        return 3 + len(self.wafers_mils)
+    def control_wafer_mils(self) -> int:
+        return self.wafers_mils[-1]
 
     @property
     def operating_breaks(self) -> tuple[int, ...]:
-        heights = [self.bottom_mils]
-        for wafer in self.wafers_mils:
-            heights.append(heights[-1] + wafer)
-        return tuple(heights)
+        return self.break_heights[:-1]
 
     @property
     def control_break(self) -> int:
-        return self.operating_breaks[-1] + self.control_wafer_mils
-
-    def segments(self) -> tuple[PinSegment, ...]:
-        parts = [PinSegment(SegmentKind.BOTTOM, self.bottom_mils)]
-        parts.extend(PinSegment(SegmentKind.WAFER, wafer) for wafer in self.wafers_mils)
-        parts.append(PinSegment(SegmentKind.WAFER, self.control_wafer_mils))
-        parts.append(PinSegment(SegmentKind.DRIVER, self.driver_mils, self.driver_profile))
-        return tuple(parts)
+        return self.break_heights[-1]
 
     def render(self) -> str:
         pieces = [str(self.bottom_mils)]
-        pieces.extend(str(wafer) for wafer in self.wafers_mils)
+        pieces.extend(str(wafer) for wafer in self.wafers_mils[:-1])
         pieces.append(f"[{self.control_wafer_mils}]")
         pieces.append(str(self.driver_mils))
         return " ".join(pieces)
@@ -117,20 +100,12 @@ def build_core_stack(
         raise PinningError("a chamber breaks somewhere", chamber=chamber)
     pinning = spec.pinning
     bottom = pinning.bottom_pin(ordered[0])
-    wafers: list[int] = []
-    for shallower, deeper in zip(ordered, ordered[1:], strict=False):
-        thickness = pinning.wafer(shallower, deeper)
-        if thickness < pinning.min_wafer_mils:
-            raise PinningError(
-                "that wafer is too thin to stand up in the chamber",
-                chamber=chamber,
-                thickness=thickness,
-                thinnest=pinning.min_wafer_mils,
-            )
-        wafers.append(thickness)
-    top_operating = bottom + sum(wafers)
+    try:
+        wafers = pinning.wafers_between(ordered)
+    except PinningError as thin:
+        raise PinningError(thin.message, chamber=chamber, **thin.facts) from None
     control = spec.control_break(control_depth)
-    control_wafer = control - top_operating
+    control_wafer = control - bottom - sum(wafers)
     if control_wafer < pinning.min_wafer_mils:
         raise PinningError(
             "the control cut is too shallow to clear the operating breaks",
@@ -147,7 +122,7 @@ def build_core_stack(
             driver=driver,
             shortest=pinning.min_driver_mils,
         )
-    return CoreStack(chamber, bottom, tuple(wafers), control_wafer, driver, driver_profile)
+    return CoreStack(chamber, bottom, (*wafers, control_wafer), driver, driver_profile)
 
 
 @dataclass(frozen=True)
@@ -220,10 +195,7 @@ def control_cut_range(spec: CoreSpec, operating_depths: Sequence[int]) -> tuple[
     if not ordered:
         raise PinningError("a chamber breaks somewhere")
     pinning = spec.pinning
-    top_operating = pinning.bottom_pin(ordered[0]) + sum(
-        pinning.wafer(shallower, deeper)
-        for shallower, deeper in zip(ordered, ordered[1:], strict=False)
-    )
+    top_operating = pinning.bottom_pin(ordered[0]) + sum(pinning.wafers_between(ordered))
     workable: list[int] = []
     for depth in pinning.chart.depths:
         control = spec.control_break(depth)
