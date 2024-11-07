@@ -114,12 +114,6 @@ def test_a_whole_core_is_pinned_for_its_keys_and_the_control():
     assert core.stack(2).wafers_mils == (50, 50)
 
 
-def test_every_row_of_the_core_chart_shows_its_control_wafer():
-    core = pin_core(a_spec(), [b("2462462")], b("6666666"))
-    assert all("[" in line for line in core.chart_lines())
-    assert len(core.chart_lines()) == 7
-
-
 def test_the_parts_list_has_a_wafer_for_every_control_break():
     core = pin_core(a_spec(), [b("2462462")], b("6666666"))
     wafers = [part for part in core.parts() if part.kind is SegmentKind.WAFER]

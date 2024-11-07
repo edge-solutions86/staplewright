@@ -46,13 +46,6 @@ def test_a_master_and_a_change_key_split_where_they_differ():
     assert pinning.stack(1).wafers_mils == ()
 
 
-def test_the_chart_prints_one_row_a_chamber():
-    lines = pin_cylinder(a_spec(), [b("342156"), b("362356")]).chart_lines()
-    assert len(lines) == 6
-    assert lines[0].startswith("1  ")
-    assert lines[1] == "2  210 30 240"
-
-
 def test_a_cylinder_reports_the_depths_each_chamber_takes():
     pinning = pin_cylinder(a_spec(), [b("342156"), b("362356")])
     assert pinning.break_depths(2) == (4, 6)

@@ -128,13 +128,6 @@ class PinStack:
         parts.append(PinSegment(SegmentKind.DRIVER, self.driver_mils, self.driver_profile))
         return tuple(parts)
 
-    def render(self) -> str:
-        """Bottom first, the way the chart is read at the bench."""
-        pieces = [str(self.bottom_mils)]
-        pieces.extend(str(wafer) for wafer in self.wafers_mils)
-        pieces.append(str(self.driver_mils))
-        return " ".join(pieces)
-
 
 def build_stack(
     spec: PinningSpec,

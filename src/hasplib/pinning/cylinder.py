@@ -81,10 +81,6 @@ class CylinderPinning:
     def incidental_key_count(self) -> int:
         return incidental_count(self.keys)
 
-    def chart_lines(self) -> tuple[str, ...]:
-        """The rows the bench reads, one a chamber."""
-        return tuple(f"{stack.chamber}  {stack.render()}" for stack in self.stacks)
-
     def can_be_built_from(self, kit: PinKit) -> bool:
         return not kit.shortfall(self.parts())
 

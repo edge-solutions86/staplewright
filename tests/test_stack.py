@@ -132,10 +132,6 @@ def test_a_security_driver_carries_its_profile_into_the_parts_list():
     assert stack.segments()[-1].bin_code.endswith("S")
 
 
-def test_the_bench_reads_the_stack_bottom_first():
-    assert build_stack(a_spec(), 2, [2, 4, 8]).render() == "180 30 60 210"
-
-
 def test_a_column_shorter_than_its_bottom_pin_is_refused():
     with pytest.raises(PinningError):
         a_spec(column_mils=120)

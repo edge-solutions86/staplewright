@@ -77,13 +77,6 @@ class CoreStack(PinStack):
     def control_break(self) -> int:
         return self.break_heights[-1]
 
-    def render(self) -> str:
-        pieces = [str(self.bottom_mils)]
-        pieces.extend(str(wafer) for wafer in self.wafers_mils[:-1])
-        pieces.append(f"[{self.control_wafer_mils}]")
-        pieces.append(str(self.driver_mils))
-        return " ".join(pieces)
-
 
 def build_core_stack(
     spec: CoreSpec,
@@ -149,9 +142,6 @@ class CorePinning:
 
     def parts(self) -> tuple[PinSegment, ...]:
         return tuple(part for stack in self.stacks for part in stack.segments())
-
-    def chart_lines(self) -> tuple[str, ...]:
-        return tuple(f"{stack.chamber}  {stack.render()}" for stack in self.stacks)
 
 
 def pin_core(
