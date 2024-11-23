@@ -1,0 +1,233 @@
+"""Key requests, and the signature that has to be on one before metal moves.
+
+A request is a small state machine and the states are worth naming, because
+the difference between a request that was denied and one that was withdrawn
+matters to the department six months later. Raised, submitted, then approved
+or denied, and a request that has been decided cannot be decided again.
+
+Two rules do the real work. The signature has to reach: an authorizer signs
+for one department and, usually, a list of buildings. And a master key needs
+a signature that is allowed to approve masters, which most authorizers are
+not. Everything else here is bookkeeping around those two.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterator
+from dataclasses import dataclass, replace
+from datetime import date
+from enum import StrEnum
+
+from hasplib.control.people import Directory
+from hasplib.errors import ConflictError, InputError, NotFoundError
+
+
+class RequestState(StrEnum):
+    """Where a request has got to."""
+
+    RAISED = "raised"
+    SUBMITTED = "submitted"
+    APPROVED = "approved"
+    DENIED = "denied"
+    WITHDRAWN = "withdrawn"
+    FILLED = "filled"
+
+
+OPEN_STATES = frozenset({RequestState.RAISED, RequestState.SUBMITTED})
+DECIDED_STATES = frozenset({RequestState.APPROVED, RequestState.DENIED})
+
+
+@dataclass(frozen=True)
+class KeyRequest:
+    """One person asking for one key."""
+
+    number: str
+    keyholder: str
+    symbol: str
+    building: str
+    reason: str
+    raised_on: date
+    state: RequestState = RequestState.RAISED
+    is_master: bool = False
+    decided_on: date | None = None
+    decided_by: str = ""
+    note: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.number.strip():
+            raise InputError("a request needs a number")
+        if not self.reason.strip():
+            raise InputError("a request needs a reason", number=self.number)
+
+    @property
+    def is_open(self) -> bool:
+        return self.state in OPEN_STATES
+
+    @property
+    def is_decided(self) -> bool:
+        return self.state in DECIDED_STATES
+
+    def describe(self) -> str:
+        return f"{self.number} {self.keyholder} wants {self.symbol} in {self.building}"
+
+
+class RequestBook:
+    """Every request, open and closed, in the order they were raised."""
+
+    def __init__(self, directory: Directory) -> None:
+        self.directory = directory
+        self._requests: dict[str, KeyRequest] = {}
+        self._order: list[str] = []
+
+    def raise_request(self, request: KeyRequest) -> KeyRequest:
+        if request.number in self._requests:
+            raise ConflictError("that request number is taken", number=request.number)
+        if request.state is not RequestState.RAISED:
+            raise ConflictError("a request starts raised", number=request.number)
+        self.directory.person(request.keyholder)
+        self._requests[request.number] = request
+        self._order.append(request.number)
+        return request
+
+    def request(self, number: str) -> KeyRequest:
+        try:
+            return self._requests[number]
+        except KeyError:
+            raise NotFoundError("no such request", number=number) from None
+
+    def submit(self, number: str) -> KeyRequest:
+        """Send a request to whoever signs for that department."""
+        request = self.request(number)
+        if request.state is not RequestState.RAISED:
+            raise ConflictError(
+                "only a raised request can be submitted",
+                number=number,
+                state=str(request.state),
+            )
+        return self._store(replace(request, state=RequestState.SUBMITTED))
+
+    def approve(self, number: str, signer: str, when: date, note: str = "") -> KeyRequest:
+        """Sign a request off, refusing a signature that does not reach."""
+        request = self._for_decision(number)
+        person = self.directory.person(request.keyholder)
+        if not person.may_hold_keys(when):
+            raise ConflictError(
+                "that keyholder may not hold keys",
+                number=number,
+                keyholder=request.keyholder,
+                standing=str(person.standing),
+            )
+        if not self.directory.may_authorize(signer, person.department, request.building, when):
+            raise ConflictError(
+                "that signature does not reach this request",
+                number=number,
+                signer=signer,
+                department=person.department,
+                building=request.building,
+            )
+        if request.is_master and not self.directory.authorizer(signer).may_approve_masters:
+            raise ConflictError(
+                "that signature is not allowed to approve a master",
+                number=number,
+                signer=signer,
+                symbol=request.symbol,
+            )
+        return self._store(
+            replace(
+                request,
+                state=RequestState.APPROVED,
+                decided_on=when,
+                decided_by=signer,
+                note=note,
+            )
+        )
+
+    def deny(self, number: str, signer: str, when: date, note: str) -> KeyRequest:
+        """Turn a request down. The note is required, not optional."""
+        request = self._for_decision(number)
+        if not note.strip():
+            raise InputError("a denial says why", number=number)
+        return self._store(
+            replace(
+                request,
+                state=RequestState.DENIED,
+                decided_on=when,
+                decided_by=signer,
+                note=note,
+            )
+        )
+
+    def withdraw(self, number: str, when: date, note: str = "") -> KeyRequest:
+        """The department changed its mind, which is not the same as a denial."""
+        request = self.request(number)
+        if not request.is_open:
+            raise ConflictError(
+                "only an open request can be withdrawn",
+                number=number,
+                state=str(request.state),
+            )
+        return self._store(
+            replace(request, state=RequestState.WITHDRAWN, decided_on=when, note=note)
+        )
+
+    def mark_filled(self, number: str) -> KeyRequest:
+        """The key went over the counter. Only an approved request can."""
+        request = self.request(number)
+        if request.state is not RequestState.APPROVED:
+            raise ConflictError(
+                "only an approved request gets filled",
+                number=number,
+                state=str(request.state),
+            )
+        return self._store(replace(request, state=RequestState.FILLED))
+
+    def _for_decision(self, number: str) -> KeyRequest:
+        request = self.request(number)
+        if request.state is not RequestState.SUBMITTED:
+            raise ConflictError(
+                "only a submitted request can be decided",
+                number=number,
+                state=str(request.state),
+            )
+        return request
+
+    def _store(self, request: KeyRequest) -> KeyRequest:
+        self._requests[request.number] = request
+        return request
+
+    def in_state(self, state: RequestState) -> tuple[KeyRequest, ...]:
+        return tuple(self._requests[n] for n in self._order if self._requests[n].state is state)
+
+    def open_requests(self) -> tuple[KeyRequest, ...]:
+        return tuple(self._requests[n] for n in self._order if self._requests[n].is_open)
+
+    def for_keyholder(self, identifier: str) -> tuple[KeyRequest, ...]:
+        self.directory.person(identifier)
+        return tuple(
+            self._requests[n] for n in self._order if self._requests[n].keyholder == identifier
+        )
+
+    def signed_by(self, signer: str) -> tuple[KeyRequest, ...]:
+        return tuple(
+            self._requests[n] for n in self._order if self._requests[n].decided_by == signer
+        )
+
+    def waiting_on(self, department: str) -> tuple[KeyRequest, ...]:
+        """Submitted requests a department still owes a decision on."""
+        found = []
+        for number in self._order:
+            request = self._requests[number]
+            if request.state is not RequestState.SUBMITTED:
+                continue
+            if self.directory.person(request.keyholder).department == department:
+                found.append(request)
+        return tuple(found)
+
+    def __contains__(self, number: object) -> bool:
+        return number in self._requests
+
+    def __iter__(self) -> Iterator[KeyRequest]:
+        return iter(self._requests[number] for number in self._order)
+
+    def __len__(self) -> int:
+        return len(self._requests)
