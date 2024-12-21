@@ -20,7 +20,8 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from hasplib.campus.openings import Opening, OpeningSchedule
-from hasplib.errors import ConflictError, InputError, NotFoundError
+from hasplib.errors import ConflictError, InputError
+from hasplib.store import Registry
 
 
 class CylinderFormat(StrEnum):
@@ -86,24 +87,18 @@ class HardwareRegister:
 
     def __init__(self, openings: OpeningSchedule) -> None:
         self.openings = openings
-        self._cylinders: dict[str, Cylinder] = {}
+        self._cylinders: Registry[Cylinder] = Registry("cylinder", "serial")
 
     def add(self, cylinder: Cylinder) -> Cylinder:
-        if cylinder.serial in self._cylinders:
-            raise ConflictError("that serial is already on the register", serial=cylinder.serial)
         if cylinder.is_installed:
             raise ConflictError(
                 "a cylinder joins the register on the shelf and gets installed after",
                 serial=cylinder.serial,
             )
-        self._cylinders[cylinder.serial] = cylinder
-        return cylinder
+        return self._cylinders.add(cylinder.serial, cylinder)
 
     def cylinder(self, serial: str) -> Cylinder:
-        try:
-            return self._cylinders[serial]
-        except KeyError:
-            raise NotFoundError("no such cylinder", serial=serial) from None
+        return self._cylinders.get(serial)
 
     def install(self, serial: str, opening_number: str, position: Position) -> Cylinder:
         """Put a cylinder in a door, refusing anything already occupied."""
@@ -130,8 +125,7 @@ class HardwareRegister:
                 serial=sitting.serial,
             )
         updated = replace(cylinder, installed_at=opening_number, position=position)
-        self._cylinders[serial] = updated
-        return updated
+        return self._cylinders.put(serial, updated)
 
     def pull(self, serial: str) -> Cylinder:
         """Take a cylinder out and put it back on the shelf."""
@@ -139,8 +133,7 @@ class HardwareRegister:
         if not cylinder.is_installed:
             raise ConflictError("that cylinder is already on the shelf", serial=serial)
         updated = replace(cylinder, installed_at=None, position=None)
-        self._cylinders[serial] = updated
-        return updated
+        return self._cylinders.put(serial, updated)
 
     def move(self, serial: str, opening_number: str, position: Position) -> Cylinder:
         """Pull and install in one step, which is what a swap really is."""
@@ -150,40 +143,38 @@ class HardwareRegister:
     def assign_group(self, serial: str, group: str) -> Cylinder:
         cylinder = self.cylinder(serial)
         updated = replace(cylinder, group=group)
-        self._cylinders[serial] = updated
-        return updated
+        return self._cylinders.put(serial, updated)
 
     def at(self, opening_number: str, position: Position) -> Cylinder | None:
-        for cylinder in self._cylinders.values():
-            if cylinder.installed_at == opening_number and cylinder.position is position:
-                return cylinder
-        return None
+        return self._cylinders.first(
+            lambda c: c.installed_at == opening_number and c.position is position
+        )
 
     def on_opening(self, opening_number: str) -> tuple[Cylinder, ...]:
         self.openings.opening(opening_number)
-        found = [c for c in self._cylinders.values() if c.installed_at == opening_number]
+        found = list(self._cylinders.where(lambda c: c.installed_at == opening_number))
         found.sort(key=lambda c: (str(c.position), c.serial))
         return tuple(found)
 
     def in_building(self, code: str) -> tuple[Cylinder, ...]:
         numbers = {opening.number for opening in self.openings.in_building(code)}
-        found = [c for c in self._cylinders.values() if c.installed_at in numbers]
+        found = list(self._cylinders.where(lambda c: c.installed_at in numbers))
         found.sort(key=lambda c: (c.installed_at or "", str(c.position)))
         return tuple(found)
 
     def on_the_shelf(self) -> tuple[Cylinder, ...]:
-        found = [c for c in self._cylinders.values() if not c.is_installed]
+        found = list(self._cylinders.where(lambda c: not c.is_installed))
         found.sort(key=lambda c: c.serial)
         return tuple(found)
 
     def in_group(self, group: str) -> tuple[Cylinder, ...]:
-        found = [c for c in self._cylinders.values() if c.group == group]
+        found = list(self._cylinders.where(lambda c: c.group == group))
         found.sort(key=lambda c: c.serial)
         return tuple(found)
 
     def unkeyed(self) -> tuple[Cylinder, ...]:
         """Installed cylinders nobody has said what they open."""
-        found = [c for c in self._cylinders.values() if c.is_installed and not c.group]
+        found = list(self._cylinders.where(lambda c: c.is_installed and not c.group))
         found.sort(key=lambda c: c.serial)
         return tuple(found)
 
@@ -200,7 +191,7 @@ class HardwareRegister:
         return serial in self._cylinders
 
     def __iter__(self) -> Iterator[Cylinder]:
-        return iter(self._cylinders[serial] for serial in sorted(self._cylinders))
+        return iter(self._cylinders.by_key())
 
     def __len__(self) -> int:
         return len(self._cylinders)

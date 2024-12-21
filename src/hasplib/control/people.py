@@ -18,7 +18,8 @@ from dataclasses import dataclass, replace
 from datetime import date
 from enum import StrEnum
 
-from hasplib.errors import ConflictError, InputError, NotFoundError
+from hasplib.errors import ConflictError, InputError
+from hasplib.store import Registry
 
 
 class Affiliation(StrEnum):
@@ -102,20 +103,14 @@ class Directory:
     """Every keyholder and every authorizer, in one place."""
 
     def __init__(self) -> None:
-        self._people: dict[str, Keyholder] = {}
-        self._authorizers: dict[str, Authorizer] = {}
+        self._people: Registry[Keyholder] = Registry("keyholder", "identifier")
+        self._authorizers: Registry[Authorizer] = Registry("authorizer", "identifier")
 
     def add(self, person: Keyholder) -> Keyholder:
-        if person.identifier in self._people:
-            raise ConflictError("that identifier is taken", identifier=person.identifier)
-        self._people[person.identifier] = person
-        return person
+        return self._people.add(person.identifier, person)
 
     def person(self, identifier: str) -> Keyholder:
-        try:
-            return self._people[identifier]
-        except KeyError:
-            raise NotFoundError("no such keyholder", identifier=identifier) from None
+        return self._people.get(identifier)
 
     def separate(self, identifier: str, when: date) -> Keyholder:
         """Mark somebody as gone. Their keys are somebody else's problem."""
@@ -123,23 +118,20 @@ class Directory:
         if person.standing is Standing.SEPARATED:
             raise ConflictError("that keyholder has already separated", identifier=identifier)
         updated = replace(person, standing=Standing.SEPARATED, separated_on=when)
-        self._people[identifier] = updated
-        return updated
+        return self._people.put(identifier, updated)
 
     def suspend(self, identifier: str) -> Keyholder:
         person = self.person(identifier)
         if person.standing is Standing.SEPARATED:
             raise ConflictError("a separated keyholder cannot be suspended", identifier=identifier)
         updated = replace(person, standing=Standing.SUSPENDED)
-        self._people[identifier] = updated
-        return updated
+        return self._people.put(identifier, updated)
 
     def reinstate(self, identifier: str) -> Keyholder:
         """Somebody came back, or the suspension was lifted."""
         person = self.person(identifier)
         updated = replace(person, standing=Standing.ACTIVE, separated_on=None)
-        self._people[identifier] = updated
-        return updated
+        return self._people.put(identifier, updated)
 
     def extend(self, identifier: str, until: date) -> Keyholder:
         """Push a contract end date out. It cannot be pulled backward here."""
@@ -154,61 +146,43 @@ class Directory:
                 asked=until.isoformat(),
             )
         updated = replace(person, ends_on=until)
-        self._people[identifier] = updated
-        return updated
+        return self._people.put(identifier, updated)
 
     def add_authorizer(self, authorizer: Authorizer) -> Authorizer:
-        if authorizer.identifier in self._authorizers:
-            raise ConflictError(
-                "that person already signs for keys", identifier=authorizer.identifier
-            )
         self.person(authorizer.identifier)
-        self._authorizers[authorizer.identifier] = authorizer
-        return authorizer
+        return self._authorizers.add(authorizer.identifier, authorizer)
 
     def authorizer(self, identifier: str) -> Authorizer:
-        try:
-            return self._authorizers[identifier]
-        except KeyError:
-            raise NotFoundError(
-                "that person does not sign for keys", identifier=identifier
-            ) from None
+        return self._authorizers.get(identifier)
 
     def may_authorize(self, identifier: str, department: str, building: str, today: date) -> bool:
         """Whether a signature counts today, for this department and building."""
-        if identifier not in self._authorizers:
+        signer = self._authorizers.find(identifier)
+        if signer is None or not self.person(identifier).may_hold_keys(today):
             return False
-        signer = self.person(identifier)
-        if not signer.may_hold_keys(today):
-            return False
-        return self._authorizers[identifier].covers(department, building)
+        return signer.covers(department, building)
 
     def in_department(self, department: str) -> tuple[Keyholder, ...]:
-        found = [p for p in self._people.values() if p.department == department]
-        found.sort(key=lambda p: p.identifier)
-        return tuple(found)
+        found = self._people.where(lambda p: p.department == department)
+        return tuple(sorted(found, key=lambda p: p.identifier))
 
     def active(self, today: date) -> tuple[Keyholder, ...]:
-        found = [p for p in self._people.values() if p.may_hold_keys(today)]
-        found.sort(key=lambda p: p.identifier)
-        return tuple(found)
+        found = self._people.where(lambda p: p.may_hold_keys(today))
+        return tuple(sorted(found, key=lambda p: p.identifier))
 
     def lapsed(self, today: date) -> tuple[Keyholder, ...]:
         """Records that ran past their end date and nobody closed."""
-        found = [
-            p for p in self._people.values() if p.standing is Standing.ACTIVE and p.lapsed_on(today)
-        ]
-        found.sort(key=lambda p: (p.ends_on or today, p.identifier))
-        return tuple(found)
+        found = self._people.where(lambda p: p.standing is Standing.ACTIVE and p.lapsed_on(today))
+        return tuple(sorted(found, key=lambda p: (p.ends_on or today, p.identifier)))
 
     def authorizers(self) -> tuple[Authorizer, ...]:
-        return tuple(self._authorizers[key] for key in sorted(self._authorizers))
+        return self._authorizers.by_key()
 
     def __contains__(self, identifier: object) -> bool:
         return identifier in self._people
 
     def __iter__(self) -> Iterator[Keyholder]:
-        return iter(self._people[key] for key in sorted(self._people))
+        return iter(self._people.by_key())
 
     def __len__(self) -> int:
         return len(self._people)

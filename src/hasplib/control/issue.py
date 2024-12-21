@@ -21,7 +21,8 @@ from datetime import date
 from enum import StrEnum
 
 from hasplib.control.people import Directory
-from hasplib.errors import ConflictError, InputError, NotFoundError
+from hasplib.errors import ConflictError, InputError
+from hasplib.store import Registry
 
 
 class KeyState(StrEnum):
@@ -83,8 +84,7 @@ class KeyLedger:
 
     def __init__(self, directory: Directory) -> None:
         self.directory = directory
-        self._keys: dict[str, IssuedKey] = {}
-        self._order: list[str] = []
+        self._keys: Registry[IssuedKey] = Registry("key in the ledger", "tag")
 
     def issue(
         self,
@@ -96,7 +96,7 @@ class KeyLedger:
         deposit_cents: int = 0,
     ) -> IssuedKey:
         """Hand a key over, refusing anybody who may not hold one."""
-        if tag in self._keys:
+        if self._keys.has(tag):
             raise ConflictError("that tag is already in the ledger", tag=tag)
         person = self.directory.person(keyholder)
         if not person.may_hold_keys(when):
@@ -114,15 +114,10 @@ class KeyLedger:
                 ends_on=person.ends_on.isoformat(),
             )
         key = IssuedKey(tag, symbol, keyholder, when, due_on, deposit_cents)
-        self._keys[tag] = key
-        self._order.append(tag)
-        return key
+        return self._keys.add(tag, key)
 
     def key(self, tag: str) -> IssuedKey:
-        try:
-            return self._keys[tag]
-        except KeyError:
-            raise NotFoundError("no such key in the ledger", tag=tag) from None
+        return self._keys.get(tag)
 
     def take_back(self, tag: str, when: date, note: str = "") -> IssuedKey:
         """A key comes back over the counter."""
@@ -175,28 +170,21 @@ class KeyLedger:
         return key
 
     def _store(self, key: IssuedKey) -> IssuedKey:
-        self._keys[key.tag] = key
-        return key
+        return self._keys.put(key.tag, key)
 
     def held_by(self, keyholder: str) -> tuple[IssuedKey, ...]:
         self.directory.person(keyholder)
-        return tuple(
-            self._keys[tag]
-            for tag in self._order
-            if self._keys[tag].keyholder == keyholder and self._keys[tag].is_out
-        )
+        return self._keys.where(lambda key: key.keyholder == keyholder and key.is_out)
 
     def history_of(self, keyholder: str) -> tuple[IssuedKey, ...]:
         self.directory.person(keyholder)
-        return tuple(
-            self._keys[tag] for tag in self._order if self._keys[tag].keyholder == keyholder
-        )
+        return self._keys.where(lambda key: key.keyholder == keyholder)
 
     def out(self) -> tuple[IssuedKey, ...]:
-        return tuple(self._keys[tag] for tag in self._order if self._keys[tag].is_out)
+        return self._keys.where(lambda key: key.is_out)
 
     def gone(self) -> tuple[IssuedKey, ...]:
-        return tuple(self._keys[tag] for tag in self._order if self._keys[tag].is_gone)
+        return self._keys.where(lambda key: key.is_gone)
 
     def overdue(self, today: date) -> tuple[IssuedKey, ...]:
         found = [key for key in self.out() if key.overdue_on(today)]
@@ -204,11 +192,7 @@ class KeyLedger:
         return tuple(found)
 
     def cut_to(self, symbol: str) -> tuple[IssuedKey, ...]:
-        return tuple(
-            self._keys[tag]
-            for tag in self._order
-            if self._keys[tag].symbol == symbol and self._keys[tag].is_out
-        )
+        return self._keys.where(lambda key: key.symbol == symbol and key.is_out)
 
     def deposits_held(self) -> int:
         return sum(key.deposit_cents for key in self.out())
@@ -223,7 +207,7 @@ class KeyLedger:
         return tag in self._keys
 
     def __iter__(self) -> Iterator[IssuedKey]:
-        return iter(self._keys[tag] for tag in self._order)
+        return iter(self._keys.values())
 
     def __len__(self) -> int:
         return len(self._keys)

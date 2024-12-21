@@ -19,7 +19,8 @@ from datetime import date
 from enum import StrEnum
 
 from hasplib.control.people import Directory
-from hasplib.errors import ConflictError, InputError, NotFoundError
+from hasplib.errors import ConflictError, InputError
+from hasplib.store import Registry
 
 
 class RequestState(StrEnum):
@@ -76,24 +77,16 @@ class RequestBook:
 
     def __init__(self, directory: Directory) -> None:
         self.directory = directory
-        self._requests: dict[str, KeyRequest] = {}
-        self._order: list[str] = []
+        self._requests: Registry[KeyRequest] = Registry("request", "number")
 
     def raise_request(self, request: KeyRequest) -> KeyRequest:
-        if request.number in self._requests:
-            raise ConflictError("that request number is taken", number=request.number)
         if request.state is not RequestState.RAISED:
             raise ConflictError("a request starts raised", number=request.number)
         self.directory.person(request.keyholder)
-        self._requests[request.number] = request
-        self._order.append(request.number)
-        return request
+        return self._requests.add(request.number, request)
 
     def request(self, number: str) -> KeyRequest:
-        try:
-            return self._requests[number]
-        except KeyError:
-            raise NotFoundError("no such request", number=number) from None
+        return self._requests.get(number)
 
     def submit(self, number: str) -> KeyRequest:
         """Send a request to whoever signs for that department."""
@@ -192,42 +185,36 @@ class RequestBook:
         return request
 
     def _store(self, request: KeyRequest) -> KeyRequest:
-        self._requests[request.number] = request
-        return request
+        return self._requests.put(request.number, request)
 
     def in_state(self, state: RequestState) -> tuple[KeyRequest, ...]:
-        return tuple(self._requests[n] for n in self._order if self._requests[n].state is state)
+        return self._requests.where(lambda request: request.state is state)
 
     def open_requests(self) -> tuple[KeyRequest, ...]:
-        return tuple(self._requests[n] for n in self._order if self._requests[n].is_open)
+        return self._requests.where(lambda request: request.is_open)
 
     def for_keyholder(self, identifier: str) -> tuple[KeyRequest, ...]:
         self.directory.person(identifier)
-        return tuple(
-            self._requests[n] for n in self._order if self._requests[n].keyholder == identifier
-        )
+        return self._requests.where(lambda request: request.keyholder == identifier)
 
     def signed_by(self, signer: str) -> tuple[KeyRequest, ...]:
-        return tuple(
-            self._requests[n] for n in self._order if self._requests[n].decided_by == signer
-        )
+        return self._requests.where(lambda request: request.decided_by == signer)
 
     def waiting_on(self, department: str) -> tuple[KeyRequest, ...]:
         """Submitted requests a department still owes a decision on."""
-        found = []
-        for number in self._order:
-            request = self._requests[number]
+
+        def theirs(request: KeyRequest) -> bool:
             if request.state is not RequestState.SUBMITTED:
-                continue
-            if self.directory.person(request.keyholder).department == department:
-                found.append(request)
-        return tuple(found)
+                return False
+            return self.directory.person(request.keyholder).department == department
+
+        return self._requests.where(theirs)
 
     def __contains__(self, number: object) -> bool:
         return number in self._requests
 
     def __iter__(self) -> Iterator[KeyRequest]:
-        return iter(self._requests[number] for number in self._order)
+        return iter(self._requests.values())
 
     def __len__(self) -> int:
         return len(self._requests)
