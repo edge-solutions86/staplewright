@@ -13,6 +13,13 @@ from hasplib.persistence.models.campus import (
     CylinderRow,
     OpeningRow,
 )
+from hasplib.persistence.models.control import (
+    AuthorizerRow,
+    DepositLineRow,
+    IssuedKeyRow,
+    KeyholderRow,
+    KeyRequestRow,
+)
 from hasplib.persistence.models.keying import (
     GroupMemberRow,
     GroupRow,
@@ -24,12 +31,17 @@ from hasplib.persistence.models.reference import BlankRow, ChartRow, KeywaySecti
 __all__ = [
     "AccessGroupRow",
     "AccessRequirementRow",
+    "AuthorizerRow",
     "BlankRow",
     "BuildingRow",
     "ChartRow",
     "CylinderRow",
+    "DepositLineRow",
     "GroupMemberRow",
     "GroupRow",
+    "IssuedKeyRow",
+    "KeyRequestRow",
+    "KeyholderRow",
     "KeywaySectionRow",
     "OpeningRow",
     "ScheduleEntryRow",
