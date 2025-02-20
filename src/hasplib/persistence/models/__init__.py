@@ -6,6 +6,13 @@ import of this package is enough, and the re-exports are the point rather
 than an accident.
 """
 
+from hasplib.persistence.models.campus import (
+    AccessGroupRow,
+    AccessRequirementRow,
+    BuildingRow,
+    CylinderRow,
+    OpeningRow,
+)
 from hasplib.persistence.models.keying import (
     GroupMemberRow,
     GroupRow,
@@ -15,11 +22,16 @@ from hasplib.persistence.models.keying import (
 from hasplib.persistence.models.reference import BlankRow, ChartRow, KeywaySectionRow
 
 __all__ = [
+    "AccessGroupRow",
+    "AccessRequirementRow",
     "BlankRow",
+    "BuildingRow",
     "ChartRow",
+    "CylinderRow",
     "GroupMemberRow",
     "GroupRow",
     "KeywaySectionRow",
+    "OpeningRow",
     "ScheduleEntryRow",
     "SystemRow",
 ]
