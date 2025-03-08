@@ -27,6 +27,12 @@ from hasplib.persistence.models.keying import (
     SystemRow,
 )
 from hasplib.persistence.models.reference import BlankRow, ChartRow, KeywaySectionRow
+from hasplib.persistence.models.rekey import (
+    IncidentRow,
+    RetiredBittingRow,
+    WorkOrderLineRow,
+    WorkOrderRow,
+)
 
 __all__ = [
     "AccessGroupRow",
@@ -39,11 +45,15 @@ __all__ = [
     "DepositLineRow",
     "GroupMemberRow",
     "GroupRow",
+    "IncidentRow",
     "IssuedKeyRow",
     "KeyRequestRow",
     "KeyholderRow",
     "KeywaySectionRow",
     "OpeningRow",
+    "RetiredBittingRow",
     "ScheduleEntryRow",
     "SystemRow",
+    "WorkOrderLineRow",
+    "WorkOrderRow",
 ]
