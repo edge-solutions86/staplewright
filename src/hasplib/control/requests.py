@@ -88,6 +88,15 @@ class RequestBook:
     def request(self, number: str) -> KeyRequest:
         return self._requests.get(number)
 
+    def load(self, request: KeyRequest) -> KeyRequest:
+        """Put a request back as it was stored, in whatever state it reached.
+
+        Used when the book comes off the database. Everything in it went
+        through the front door once and there is no state machine left to
+        walk, only a row to put back.
+        """
+        return self._requests.put(request.number, request)
+
     def submit(self, number: str) -> KeyRequest:
         """Send a request to whoever signs for that department."""
         request = self.request(number)

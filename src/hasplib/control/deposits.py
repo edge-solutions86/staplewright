@@ -91,6 +91,10 @@ class DepositBook:
             DepositEntry(tag, charge.keyholder, EntryKind.WAIVER, charge.cents, when, note)
         )
 
+    def load(self, entry: DepositEntry) -> DepositEntry:
+        """Put a line back as it was stored, in the order it was written."""
+        return self._add(entry)
+
     def _add(self, entry: DepositEntry) -> DepositEntry:
         self._entries.append(entry)
         return entry

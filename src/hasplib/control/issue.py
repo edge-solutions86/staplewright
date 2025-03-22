@@ -119,6 +119,15 @@ class KeyLedger:
     def key(self, tag: str) -> IssuedKey:
         return self._keys.get(tag)
 
+    def load(self, key: IssuedKey) -> IssuedKey:
+        """Put a key back as it was stored, checking nothing.
+
+        A key issued in 2019 to somebody who has since separated is still a
+        key that is out, and refusing it on the way back out of the database
+        would hide exactly the row the shop is looking for.
+        """
+        return self._keys.put(key.tag, key)
+
     def take_back(self, tag: str, when: date, note: str = "") -> IssuedKey:
         """A key comes back over the counter."""
         key = self._must_be_out(tag)
