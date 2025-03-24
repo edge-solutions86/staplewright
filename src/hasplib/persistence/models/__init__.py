@@ -20,6 +20,7 @@ from hasplib.persistence.models.control import (
     KeyholderRow,
     KeyRequestRow,
 )
+from hasplib.persistence.models.counters import CounterRow
 from hasplib.persistence.models.keying import (
     GroupMemberRow,
     GroupRow,
@@ -41,6 +42,7 @@ __all__ = [
     "BlankRow",
     "BuildingRow",
     "ChartRow",
+    "CounterRow",
     "CylinderRow",
     "DepositLineRow",
     "GroupMemberRow",
