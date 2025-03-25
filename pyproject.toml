@@ -12,6 +12,7 @@ license = { text = "Proprietary" }
 authors = [{ name = "rkaushik-dev" }]
 dependencies = [
   "SQLAlchemy==2.0.38",
+  "alembic==1.14.1",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +42,11 @@ select = ["E", "F", "I", "B", "UP", "C4", "SIM", "RET"]
 # A test that a property refuses has to evaluate the property on its own, and
 # there is nothing to assign it to when the point is that it raises.
 "tests/*" = ["B018"]
+# A migration is generated, and a constraint reads as one line. Wrapping one
+# makes it harder to compare against the model it came from.
+"migrations/*" = ["E501"]
+# The environment registers every table by star import, which is the point.
+"migrations/env.py" = ["E501", "F401", "F403"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["hasplib"]
