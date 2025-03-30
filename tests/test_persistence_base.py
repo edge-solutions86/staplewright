@@ -1,10 +1,16 @@
 import pytest
-from sqlalchemy import Column, Integer, String, Table, insert, select, text
+from sqlalchemy import Column, Integer, MetaData, String, Table, insert, select, text
 from sqlalchemy.exc import StatementError
 
 from hasplib.keys.bitting import Bitting
 from hasplib.keys.symbol import KeySymbol
-from hasplib.persistence.base import LONG, MEDIUM, SHORT, Base, table_names
+from hasplib.persistence.base import (
+    LONG,
+    MEDIUM,
+    NAMING_CONVENTION,
+    SHORT,
+    table_names,
+)
 from hasplib.persistence.engine import (
     MEMORY,
     build_engine,
@@ -15,9 +21,12 @@ from hasplib.persistence.engine import (
 )
 from hasplib.persistence.types import BittingColumn, DepthListColumn, SymbolColumn
 
+SCRATCH = MetaData(naming_convention=NAMING_CONVENTION)
+"""A metadata of its own, so this table stays out of the migrations."""
+
 SAMPLE = Table(
     "sample_cuts",
-    Base.metadata,
+    SCRATCH,
     Column("id", Integer, primary_key=True),
     Column("symbol", SymbolColumn()),
     Column("bitting", BittingColumn()),
@@ -30,7 +39,9 @@ SAMPLE = Table(
 def engine():
     made = build_engine(MEMORY)
     create_schema(made)
+    SCRATCH.create_all(made)
     yield made
+    SCRATCH.drop_all(made)
     drop_schema(made)
     made.dispose()
 
@@ -41,7 +52,8 @@ def test_the_column_widths_are_ordered():
 
 def test_every_table_is_named_and_reachable():
     names = table_names()
-    assert "sample_cuts" in names
+    assert "charts" in names
+    assert "sample_cuts" not in names
     assert len(names) == len(set(names))
 
 
