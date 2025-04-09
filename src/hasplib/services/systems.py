@@ -24,18 +24,19 @@ from hasplib.errors import ConflictError, NotFoundError
 from hasplib.keys.bitting import Bitting
 from hasplib.keys.schedule import KeyingSchedule
 from hasplib.keys.symbol import KeySymbol
-from hasplib.persistence.mappers.keying import (
-    entry_to_row,
-    groups_from_rows,
-    schedule_from_rows,
+from hasplib.persistence.loaders import (
+    load_family,
+    load_quarantine,
+    load_schedule,
 )
-from hasplib.persistence.mappers.reference import chart_from_row, family_from_rows
+from hasplib.persistence.mappers.keying import entry_to_row, groups_from_rows
+from hasplib.persistence.mappers.reference import chart_from_row
 from hasplib.persistence.models.keying import ScheduleEntryRow, SystemRow
 from hasplib.persistence.models.reference import KeywaySectionRow
 from hasplib.persistence.repositories import SystemRepository
 from hasplib.progression.groups import KeyingGroup
 from hasplib.progression.validate import Finding, review
-from hasplib.rekey.quarantine import Quarantine, RetirementReason
+from hasplib.rekey.quarantine import Quarantine
 from hasplib.spec.keyway import KeywayFamily
 from hasplib.spec.rules import CuttingRules, RuleSet
 
@@ -82,10 +83,9 @@ class SystemService:
 
     def family(self, family_name: str) -> KeywayFamily:
         statement = select(KeywaySectionRow).where(KeywaySectionRow.family_name == family_name)
-        rows = self.session.execute(statement).scalars().all()
-        if not rows:
+        if not self.session.execute(statement).scalars().all():
             raise NotFoundError("no such keyway family", family=family_name)
-        return family_from_rows(family_name, rows)
+        return load_family(self.session, family_name)
 
     def ruleset(self, system: SystemRow) -> RuleSet:
         return RuleSet(chart_from_row(system.chart), self.rules)
@@ -93,14 +93,8 @@ class SystemService:
     def schedule(self, name: str) -> KeyingSchedule:
         """The whole schedule, rebuilt out of its rows."""
         system = self.system(name)
-        rows = self.systems.entries(system.id)
-        return schedule_from_rows(
-            system.name,
-            self.ruleset(system),
-            self.family(system.family_name),
-            system.top_section,
-            rows,
-        )
+        self.family(system.family_name)
+        return load_schedule(self.session, system, self.rules)
 
     def draw(self, name: str, symbol: KeySymbol, section: str | None = None) -> ScheduleEntryRow:
         """Put a symbol on the schedule without cutting it."""
@@ -140,19 +134,7 @@ class SystemService:
         return row
 
     def quarantine(self) -> Quarantine:
-        from hasplib.persistence.models.rekey import RetiredBittingRow
-
-        hold = Quarantine()
-        rows = self.session.execute(select(RetiredBittingRow)).scalars().all()
-        for row in rows:
-            hold.retire(
-                row.bitting,
-                RetirementReason(row.reason),
-                row.retired_on,
-                symbol=row.symbol,
-                note=row.note,
-            )
-        return hold
+        return load_quarantine(self.session)
 
     def groups(self, name: str) -> dict[str, KeyingGroup]:
         system = self.system(name)

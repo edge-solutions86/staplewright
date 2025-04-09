@@ -18,11 +18,13 @@ from hasplib.persistence.models import (
     GroupMemberRow,
     GroupRow,
     IssuedKeyRow,
+    KeywaySectionRow,
     ScheduleEntryRow,
     SystemRow,
 )
 from keyed import GROUPS, INSTALLED, a_register
 from people import TODAY, a_directory
+from systems import campus_family
 
 CUTS = {
     "GGM": "442446",
@@ -49,6 +51,22 @@ def build(session) -> SystemRow:
     chart = chart_to_row(six_pin_chart())
     session.add(chart)
     session.flush()
+
+    family = campus_family()
+    section_ids: dict[str, int] = {}
+    for code in sorted(family.codes(), key=family.depth_of):
+        section = family.section(code)
+        parent = family.parent_of(code)
+        row = KeywaySectionRow(
+            family_name=family.name,
+            code=section.code,
+            manufacturer=section.manufacturer,
+            restricted=section.restricted,
+            parent_id=section_ids.get(parent.code) if parent else None,
+        )
+        session.add(row)
+        session.flush()
+        section_ids[code] = row.id
 
     system = SystemRow(
         name="chester park", chart_id=chart.id, family_name="Sargent LA", top_section="L"

@@ -19,14 +19,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from hasplib.campus.coverage import CoverageMap
+from hasplib.control.issue import KeyLedger
 from hasplib.errors import ConflictError, NotFoundError
 from hasplib.keys.symbol import KeySymbol
-from hasplib.persistence.mappers.campus import register_from_rows, schedule_from_rows
-from hasplib.persistence.mappers.control import directory_from_rows, ledger_from_rows
-from hasplib.persistence.mappers.keying import groups_from_rows
-from hasplib.persistence.models.campus import BuildingRow, CylinderRow, OpeningRow
-from hasplib.persistence.models.control import AuthorizerRow, IssuedKeyRow, KeyholderRow
-from hasplib.persistence.models.keying import GroupRow
+from hasplib.persistence.loaders import load_coverage, load_ledger
+from hasplib.persistence.models.control import IssuedKeyRow
 from hasplib.persistence.models.rekey import (
     IncidentRow,
     RetiredBittingRow,
@@ -55,20 +52,10 @@ class IncidentService:
 
     def coverage(self) -> CoverageMap:
         """The map from cylinders to symbols, rebuilt out of the tables."""
-        buildings = self.session.execute(select(BuildingRow)).scalars().all()
-        openings = self.session.execute(select(OpeningRow)).scalars().all()
-        cylinders = self.session.execute(select(CylinderRow)).scalars().all()
-        group_rows = self.session.execute(select(GroupRow)).scalars().all()
-        names = {row.id: row.name for row in group_rows}
-        schedule = schedule_from_rows(buildings, openings)
-        register = register_from_rows(schedule, cylinders, names)
-        return CoverageMap(register, groups_from_rows(group_rows))
+        return load_coverage(self.session)
 
-    def ledger(self):
-        people = self.session.execute(select(KeyholderRow)).scalars().all()
-        signers = self.session.execute(select(AuthorizerRow)).scalars().all()
-        keys = self.session.execute(select(IssuedKeyRow)).scalars().all()
-        return ledger_from_rows(directory_from_rows(people, signers), keys)
+    def ledger(self) -> KeyLedger:
+        return load_ledger(self.session)
 
     def report(
         self,
