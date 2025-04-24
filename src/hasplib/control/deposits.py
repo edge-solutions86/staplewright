@@ -21,6 +21,25 @@ from enum import StrEnum
 from hasplib.errors import ConflictError, InputError, NotFoundError
 
 
+@dataclass(frozen=True)
+class DepositRates:
+    """What a deposit costs, by what the key opens.
+
+    Policy rather than arithmetic, and it lives here so the counter and the
+    settings can both reach it without either of them importing the other.
+    """
+
+    change_key_cents: int = 2500
+    master_cents: int = 5000
+
+    def __post_init__(self) -> None:
+        if self.change_key_cents < 0 or self.master_cents < 0:
+            raise InputError("a deposit is not negative")
+
+    def for_key(self, is_master: bool) -> int:
+        return self.master_cents if is_master else self.change_key_cents
+
+
 class EntryKind(StrEnum):
     """What one line of the deposit book does."""
 

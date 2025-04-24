@@ -13,13 +13,12 @@ series, which is the one thing the series exists to prevent.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from hasplib.control.deposits import EntryKind
+from hasplib.control.deposits import DepositRates, EntryKind
 from hasplib.control.requests import RequestState
 from hasplib.errors import ConflictError, InputError, NotFoundError
 from hasplib.persistence.mappers.control import directory_from_rows
@@ -35,17 +34,6 @@ from hasplib.persistence.repositories import KeyRepository, RequestRepository
 
 TAG_SERIES = "key tags"
 REQUEST_SERIES = "key requests"
-
-
-@dataclass(frozen=True)
-class DepositRates:
-    """What a deposit costs, by what the key opens."""
-
-    change_key_cents: int = 2500
-    master_cents: int = 5000
-
-    def for_key(self, is_master: bool) -> int:
-        return self.master_cents if is_master else self.change_key_cents
 
 
 DEFAULT_RATES = DepositRates()
