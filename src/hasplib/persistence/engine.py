@@ -12,7 +12,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
-from sqlalchemy import Engine, create_engine, event
+from sqlalchemy import Engine, StaticPool, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from hasplib.persistence.base import Base
@@ -27,8 +27,18 @@ def _enforce_foreign_keys(connection: Any, record: Any) -> None:
 
 
 def build_engine(url: str = MEMORY, echo: bool = False) -> Engine:
-    """An engine with sqlite told to behave like a database."""
-    engine = create_engine(url, echo=echo, future=True)
+    """An engine with sqlite told to behave like a database.
+
+    An in memory database lives in its connection, so the pool has to hand
+    the same one to everybody and stop objecting about threads. Without that
+    a web request served on a worker thread opens a second, empty database
+    and reports that none of the tables exist.
+    """
+    options: dict[str, Any] = {"echo": echo, "future": True}
+    if url == MEMORY:
+        options["poolclass"] = StaticPool
+        options["connect_args"] = {"check_same_thread": False}
+    engine = create_engine(url, **options)
     if engine.dialect.name == "sqlite":
         event.listen(engine, "connect", _enforce_foreign_keys)
     return engine
