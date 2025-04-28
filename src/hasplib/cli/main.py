@@ -90,9 +90,11 @@ def tables(shop: Shop) -> None:
         click.echo(name)
 
 
+from hasplib.cli.counter import counter  # noqa: E402
 from hasplib.cli.systems import systems  # noqa: E402
 
 cli.add_command(systems)
+cli.add_command(counter)
 
 
 def run(argv: list[str] | None = None) -> int:
