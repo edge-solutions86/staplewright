@@ -12,8 +12,6 @@ a bench and a page with no serial on it is a page nobody can use.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 from hasplib.rekey.compromise import Assessment
 from hasplib.rekey.costing import Estimate
 from hasplib.rekey.orders import OrderLine, WorkOrder
@@ -107,7 +105,3 @@ def packet(
     lines.append("")
     lines.extend(order_packet(order))
     return tuple(lines)
-
-
-def as_text(lines: Sequence[str]) -> str:
-    return "\n".join(lines)

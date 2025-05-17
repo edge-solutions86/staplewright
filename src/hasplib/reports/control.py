@@ -109,7 +109,3 @@ def deposit_statement(book: DepositBook, keyholder: str) -> tuple[str, ...]:
         )
     lines.append(f"held {dollars(book.balance_of(keyholder))}")
     return tuple(lines)
-
-
-def as_text(lines: Sequence[str]) -> str:
-    return "\n".join(lines)

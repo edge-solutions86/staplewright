@@ -85,7 +85,3 @@ def cross_reference(
         rendered = ", ".join(doors) if doors else "nothing on record"
         lines.append(f"{symbol.render():<{SYMBOL_WIDTH}}{rendered}")
     return tuple(lines)
-
-
-def as_text(lines: Sequence[str]) -> str:
-    return "\n".join(lines)

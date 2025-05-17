@@ -74,7 +74,3 @@ def parts_summary(parts: Iterable[PinSegment]) -> tuple[str, ...]:
     for part in parts:
         counts[part.bin_code] = counts.get(part.bin_code, 0) + 1
     return tuple(f"{code:<8}{count:>4}" for code, count in sorted(counts.items()))
-
-
-def as_text(lines: Iterable[str]) -> str:
-    return "\n".join(lines)

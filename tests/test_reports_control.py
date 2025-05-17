@@ -4,7 +4,6 @@ from hasplib.control.deposits import DepositBook
 from hasplib.control.issue import KeyLedger
 from hasplib.control.notices import NoticeLog, notices_due
 from hasplib.reports.control import (
-    as_text,
     department_summary,
     deposit_statement,
     key_line,
@@ -12,6 +11,7 @@ from hasplib.reports.control import (
     notice_run,
     overdue_report,
 )
+from hasplib.reports.page import as_text
 from people import TODAY, a_directory
 
 DUE = date(2025, 5, 1)

@@ -4,8 +4,8 @@ from hasplib.rekey.compromise import Cause, Incident, assess
 from hasplib.rekey.costing import estimate
 from hasplib.rekey.orders import OrderLine, WorkOrder
 from hasplib.rekey.scope import ScopePolicy, decide
+from hasplib.reports.page import as_text
 from hasplib.reports.rekey import (
-    as_text,
     cost_sheet,
     incident_sheet,
     line_sheet,

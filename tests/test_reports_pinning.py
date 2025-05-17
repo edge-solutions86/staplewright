@@ -3,8 +3,8 @@ from hasplib.keys.bitting import Bitting
 from hasplib.pinning.core import CoreSpec, build_core_stack, pin_core
 from hasplib.pinning.cylinder import pin_cylinder
 from hasplib.pinning.stack import PinningSpec, build_stack
+from hasplib.reports.page import as_text
 from hasplib.reports.pinning import (
-    as_text,
     chart_body,
     core_chart,
     cylinder_chart,

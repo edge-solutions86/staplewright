@@ -1,7 +1,7 @@
 from hasplib.keys.bitting import Bitting
 from hasplib.keys.symbol import KeySymbol
+from hasplib.reports.page import as_text
 from hasplib.reports.schedule import (
-    as_text,
     bitting_list,
     cross_reference,
     open_symbols_report,
