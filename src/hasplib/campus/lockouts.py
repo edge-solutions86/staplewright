@@ -99,6 +99,10 @@ class LockoutLog:
     def call(self, number: str) -> Lockout:
         return self._calls.get(number)
 
+    def load(self, call: Lockout) -> Lockout:
+        """Put a call back as it was stored, in whatever state it reached."""
+        return self._calls.put(call.number, call)
+
     def attend(self, number: str, technician: str, when: datetime) -> Lockout:
         call = self._must_be(number, {CallState.LOGGED})
         if not technician.strip():
