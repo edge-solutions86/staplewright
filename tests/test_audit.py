@@ -1,149 +1,137 @@
-from datetime import date
+from datetime import datetime
 
-from hasplib.control.audit import (
-    Sighting,
-    check_deposits,
-    holdings_by_department,
-    reconcile,
-)
-from hasplib.control.deposits import DepositBook
-from hasplib.control.issue import KeyLedger
-from people import TODAY, a_directory
+import pytest
+from sqlalchemy.exc import IntegrityError
 
-WALK = date(2025, 9, 30)
+from dbfixture import fresh_engine, sessions_for, teardown
+from hasplib.errors import InputError
+from hasplib.persistence.base import table_names
+from hasplib.persistence.models import AuditEntryRow
+from hasplib.services.audit import KEY, SYMBOL, AuditTrail
 
-
-def a_ledger() -> KeyLedger:
-    ledger = KeyLedger(a_directory())
-    ledger.issue("41207", "AA1", "kmaki", TODAY, deposit_cents=2500)
-    ledger.issue("41208", "AA1", "dsalo", TODAY, deposit_cents=2500)
-    ledger.issue("41209", "AA", "rvirta", TODAY, deposit_cents=5000)
-    ledger.issue("41301", "B1", "phamm", TODAY, deposit_cents=2500)
-    return ledger
+MORNING = datetime(2025, 4, 8, 9, 12)
+NOON = datetime(2025, 4, 8, 12, 30)
+EVENING = datetime(2025, 4, 8, 17, 5)
 
 
-def a_book(ledger: KeyLedger) -> DepositBook:
-    book = DepositBook()
-    for key in ledger.out():
-        if key.deposit_cents:
-            book.charge(key.tag, key.keyholder, key.deposit_cents, key.issued_on)
-    return book
+@pytest.fixture()
+def session():
+    engine = fresh_engine()
+    made = sessions_for(engine)()
+    yield made
+    made.close()
+    teardown(engine)
 
 
-def everything_seen():
-    return [
-        Sighting("41207", "kmaki"),
-        Sighting("41208", "dsalo"),
-        Sighting("41209", "rvirta"),
-    ]
+def a_trail(session) -> AuditTrail:
+    trail = AuditTrail(session)
+    trail.record("rvirta", "issued", KEY, "41207", MORNING, "against R-0001")
+    trail.record("rvirta", "returned", KEY, "41207", EVENING)
+    trail.record("phamm", "cut", SYMBOL, "AA1", NOON)
+    return trail
 
 
-def test_a_department_that_produces_every_key_is_clean():
-    report = reconcile(a_ledger(), "geography", everything_seen(), WALK)
-    assert report.clean
-    assert report.counted == 3
-    assert report.expected == 3
-    assert "3 counted" in report.summary()
+def test_the_audit_table_is_on_the_metadata():
+    assert "audit_entries" in table_names()
 
 
-def test_a_key_nobody_produced_is_unaccounted_for():
-    seen = [s for s in everything_seen() if s.tag != "41208"]
-    report = reconcile(a_ledger(), "geography", seen, WALK)
-    assert [f.tag for f in report.unaccounted] == ["41208"]
-    assert report.unaccounted[0].expected == "dsalo"
-    assert "nobody produced it" in report.unaccounted[0].describe()
+def test_an_entry_records_who_did_what_to_which(session):
+    trail = AuditTrail(session)
+    row = trail.record("rvirta", "issued", KEY, "41207", MORNING)
+    assert row.actor == "rvirta"
+    assert row.subject == "key/41207"
+    assert "issued" in repr(row)
 
 
-def test_a_tag_that_is_not_in_the_ledger_is_a_stray():
-    seen = [*everything_seen(), Sighting("99999", "kmaki")]
-    report = reconcile(a_ledger(), "geography", seen, WALK)
-    findings = report.of_kind("stray")
-    assert [f.tag for f in findings] == ["99999"]
-    assert "not in the ledger" in findings[0].describe()
+def test_an_entry_describes_itself_for_a_printed_trail(session):
+    trail = AuditTrail(session)
+    row = trail.record("rvirta", "issued", KEY, "41207", MORNING)
+    assert row.describe().startswith("2025-04-08 09:12")
+    assert "key/41207" in row.describe()
 
 
-def test_a_key_the_ledger_closed_is_its_own_finding():
-    ledger = a_ledger()
-    ledger.take_back("41208", WALK)
-    report = reconcile(ledger, "geography", everything_seen(), WALK)
-    findings = report.of_kind("closed")
-    assert [f.tag for f in findings] == ["41208"]
-    assert "on paper" in findings[0].describe()
+@pytest.mark.parametrize("blank", ["actor", "action", "subject_id"])
+def test_an_entry_that_names_nothing_is_refused(session, blank):
+    settings = {
+        "actor": "rvirta",
+        "action": "issued",
+        "subject_kind": KEY,
+        "subject_id": "41207",
+        "when": MORNING,
+    }
+    settings[blank] = "  "
+    with pytest.raises(InputError):
+        AuditTrail(session).record(**settings)
 
 
-def test_a_key_in_the_wrong_hands_names_both_people():
-    seen = [Sighting("41207", "dsalo"), Sighting("41208", "dsalo"), Sighting("41209", "rvirta")]
-    report = reconcile(a_ledger(), "geography", seen, WALK)
-    findings = report.of_kind("wrong_holder")
-    assert findings[0].expected == "kmaki"
-    assert findings[0].seen == "dsalo"
+def test_the_database_refuses_an_unnamed_actor_too(session):
+    session.add(
+        AuditEntryRow(
+            happened_at=MORNING,
+            actor="",
+            action="issued",
+            subject_kind=KEY,
+            subject_id="41207",
+        )
+    )
+    with pytest.raises(IntegrityError):
+        session.flush()
 
 
-def test_a_key_from_another_department_turns_up_as_a_wrong_holder():
-    seen = [*everything_seen(), Sighting("41301", "kmaki")]
-    report = reconcile(a_ledger(), "geography", seen, WALK)
-    findings = report.of_kind("wrong_holder")
-    assert [f.tag for f in findings] == ["41301"]
-    assert findings[0].expected == "phamm"
+def test_everything_about_one_key_comes_back_in_order(session):
+    trail = a_trail(session)
+    found = trail.about(KEY, "41207")
+    assert [row.action for row in found] == ["issued", "returned"]
 
 
-def test_a_department_that_produced_nothing_is_all_unaccounted():
-    report = reconcile(a_ledger(), "geography", [], WALK)
-    assert len(report.unaccounted) == 3
-    assert report.counted == 0
+def test_a_subject_nobody_touched_has_no_trail(session):
+    assert a_trail(session).about(KEY, "99999") == []
 
 
-def test_a_lost_key_is_not_expected_on_the_table():
-    ledger = a_ledger()
-    ledger.report_lost("41208", WALK)
-    seen = [s for s in everything_seen() if s.tag != "41208"]
-    report = reconcile(ledger, "geography", seen, WALK)
-    assert report.clean
+def test_everything_one_person_did_comes_back_in_order(session):
+    trail = a_trail(session)
+    found = trail.by_actor("rvirta")
+    assert [row.action for row in found] == ["issued", "returned"]
+    assert trail.by_actor("nobody") == []
 
 
-def test_the_deposit_book_and_the_ledger_agree_when_nothing_has_moved():
-    ledger = a_ledger()
-    check = check_deposits(ledger, a_book(ledger))
-    assert check.balances
-    assert check.difference == 0
+def test_a_window_returns_what_happened_inside_it(session):
+    trail = a_trail(session)
+    found = trail.between(MORNING, NOON)
+    assert [row.action for row in found] == ["issued", "cut"]
 
 
-def test_a_key_returned_without_a_refund_shows_up_as_an_orphan():
-    ledger = a_ledger()
-    book = a_book(ledger)
-    ledger.take_back("41207", WALK)
-    check = check_deposits(ledger, book)
-    assert check.deposits_without_keys == ("41207",)
-    assert not check.balances
-    assert check.difference == -2500
+def test_a_window_that_runs_backward_is_refused(session):
+    with pytest.raises(InputError):
+        a_trail(session).between(EVENING, MORNING)
 
 
-def test_a_key_issued_without_a_deposit_line_shows_up_the_other_way():
-    ledger = a_ledger()
-    book = a_book(ledger)
-    ledger.issue("41210", "AA1", "kmaki", TODAY, deposit_cents=2500)
-    check = check_deposits(ledger, book)
-    assert check.tags_without_deposits == ("41210",)
-    assert check.difference == 2500
+def test_one_action_can_be_pulled_out(session):
+    trail = a_trail(session)
+    assert [row.subject for row in trail.of_action("cut")] == ["symbol/AA1"]
 
 
-def test_a_key_with_no_deposit_is_not_expected_in_the_book():
-    ledger = a_ledger()
-    book = a_book(ledger)
-    ledger.issue("41211", "AA1", "kmaki", TODAY)
-    check = check_deposits(ledger, book)
-    assert check.tags_without_deposits == ()
-    assert check.balances
+def test_the_actors_are_listed_once_each(session):
+    assert a_trail(session).actors() == ("phamm", "rvirta")
 
 
-def test_holdings_are_counted_per_department_biggest_first():
-    counts = holdings_by_department(a_ledger(), ["geography", "facilities"])
-    assert list(counts) == ["geography", "facilities"]
-    assert counts["geography"] == 3
-    assert counts["facilities"] == 1
+def test_the_trail_counts_itself(session):
+    assert a_trail(session).count() == 3
 
 
-def test_a_department_holding_nothing_still_appears():
-    ledger = KeyLedger(a_directory())
-    counts = holdings_by_department(ledger, ["geography"])
-    assert counts["geography"] == 0
+def test_an_empty_trail_counts_nothing(session):
+    assert AuditTrail(session).count() == 0
+
+
+def test_the_trail_prints_as_lines(session):
+    trail = a_trail(session)
+    lines = trail.lines(trail.about(KEY, "41207"))
+    assert len(lines) == 2
+    assert all("key/41207" in line for line in lines)
+
+
+def test_two_entries_at_the_same_moment_keep_their_order(session):
+    trail = AuditTrail(session)
+    trail.record("rvirta", "first", KEY, "41207", MORNING)
+    trail.record("rvirta", "second", KEY, "41207", MORNING)
+    assert [row.action for row in trail.about(KEY, "41207")] == ["first", "second"]
