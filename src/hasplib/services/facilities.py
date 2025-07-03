@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from hasplib.campus.lockouts import CallState, Identification, Lockout, LockoutLog
 from hasplib.campus.survey import Condition, Deficiency, Survey, SurveyLine
 from hasplib.errors import ConflictError, InputError, NotFoundError
+from hasplib.lifecycle import require_state
 from hasplib.persistence.mappers.facilities import (
     lockout_to_row,
     log_from_rows,
@@ -96,10 +97,12 @@ class LockoutService:
         row = self.session.get(LockoutRow, number)
         if row is None:
             raise NotFoundError("no such lockout call", number=number)
-        if CallState(row.state) not in states:
-            raise ConflictError(
-                "the call is not in a state for that", number=number, state=row.state
-            )
+        require_state(
+            CallState(row.state),
+            states,
+            "the call is not in a state for that",
+            number=number,
+        )
         return row
 
 

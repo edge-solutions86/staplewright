@@ -21,6 +21,7 @@ from datetime import datetime, time
 from enum import StrEnum
 
 from hasplib.errors import ConflictError, InputError
+from hasplib.lifecycle import require_state
 from hasplib.store import Registry
 
 AFTER_HOURS_START = time(17, 0)
@@ -135,10 +136,7 @@ class LockoutLog:
 
     def _must_be(self, number: str, states: set[CallState]) -> Lockout:
         call = self._calls.get(number)
-        if call.state not in states:
-            raise ConflictError(
-                "the call is not in a state for that", number=number, state=str(call.state)
-            )
+        require_state(call.state, states, "the call is not in a state for that", number=number)
         return call
 
     def open_calls(self) -> tuple[Lockout, ...]:

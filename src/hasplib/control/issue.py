@@ -22,6 +22,7 @@ from enum import StrEnum
 
 from hasplib.control.people import Directory
 from hasplib.errors import ConflictError, InputError
+from hasplib.lifecycle import require_state
 from hasplib.store import Registry
 
 
@@ -174,8 +175,7 @@ class KeyLedger:
 
     def _must_be_out(self, tag: str) -> IssuedKey:
         key = self.key(tag)
-        if not key.is_out:
-            raise ConflictError("that key is not out", tag=tag, state=str(key.state))
+        require_state(key.state, {KeyState.OUT}, "that key is not out", tag=tag)
         return key
 
     def _store(self, key: IssuedKey) -> IssuedKey:

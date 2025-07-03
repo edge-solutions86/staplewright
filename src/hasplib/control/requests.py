@@ -20,6 +20,7 @@ from enum import StrEnum
 
 from hasplib.control.people import Directory
 from hasplib.errors import ConflictError, InputError
+from hasplib.lifecycle import require_state
 from hasplib.store import Registry
 
 
@@ -185,12 +186,12 @@ class RequestBook:
 
     def _for_decision(self, number: str) -> KeyRequest:
         request = self.request(number)
-        if request.state is not RequestState.SUBMITTED:
-            raise ConflictError(
-                "only a submitted request can be decided",
-                number=number,
-                state=str(request.state),
-            )
+        require_state(
+            request.state,
+            {RequestState.SUBMITTED},
+            "only a submitted request can be decided",
+            number=number,
+        )
         return request
 
     def _store(self, request: KeyRequest) -> KeyRequest:

@@ -20,6 +20,7 @@ from datetime import date
 from enum import StrEnum
 
 from hasplib.errors import ConflictError, InputError
+from hasplib.lifecycle import require_state
 from hasplib.rekey.scope import ScopeDecision
 from hasplib.store import Registry
 
@@ -185,12 +186,7 @@ class WorkOrderBook:
 
     def _must_be(self, number: str, states: Iterable[OrderState]) -> WorkOrder:
         order = self._orders.get(number)
-        if order.state not in set(states):
-            raise ConflictError(
-                "the order is not in a state for that",
-                number=number,
-                state=str(order.state),
-            )
+        require_state(order.state, states, "the order is not in a state for that", number=number)
         return order
 
     def open_orders(self) -> tuple[WorkOrder, ...]:
