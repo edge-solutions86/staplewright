@@ -92,6 +92,10 @@ class Review:
     def line(self, tag: str) -> ReviewLine:
         return self._lines.get(tag)
 
+    def load(self, line: ReviewLine) -> ReviewLine:
+        """Put a line back as it was stored, answer and all."""
+        return self._lines.put(line.tag, line)
+
     def answer(self, tag: str, answer: Answer, when: date, note: str = "") -> ReviewLine:
         """Record what the department said about one key."""
         require_state(self.state, {ReviewState.OPEN}, "that review is closed", tag=tag)
