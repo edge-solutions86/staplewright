@@ -8,10 +8,9 @@ costs nothing but the reading.
 
 from __future__ import annotations
 
-from datetime import date, datetime
-
 import click
 
+from hasplib.cli.common import as_day, day_option
 from hasplib.persistence.loaders import load_coverage
 from hasplib.rekey.compromise import Cause
 from hasplib.rekey.costing import estimate
@@ -19,13 +18,7 @@ from hasplib.rekey.orders import OrderLine, WorkOrder
 from hasplib.reports.rekey import cost_sheet, incident_sheet, order_packet, scope_sheet
 from hasplib.services.incidents import IncidentService
 
-TODAY = click.option(
-    "--on", "when", type=click.DateTime(["%Y-%m-%d"]), default=None, help="the day it happened"
-)
-
-
-def _day(when: datetime | None) -> date:
-    return when.date() if when is not None else date.today()
+TODAY = day_option(name="when")
 
 
 @click.group("rekey")
@@ -53,7 +46,7 @@ def report(shop, tag, cause, note, keep_cut, when) -> None:
     """Report a key missing and retire its cut."""
     with shop.session() as session:
         service = IncidentService(session, shop.settings.scope)
-        row = service.report(tag, Cause(cause), _day(when), note, not keep_cut)
+        row = service.report(tag, Cause(cause), as_day(when), note, not keep_cut)
         click.echo(f"{row.number} logged, graded {row.severity}")
 
 

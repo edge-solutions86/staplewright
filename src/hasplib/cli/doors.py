@@ -8,27 +8,18 @@ time to type them.
 
 from __future__ import annotations
 
-from datetime import date, datetime
-
 import click
 
 from hasplib.campus.keyed_alike import KeyedAlikeSet
 from hasplib.campus.lockouts import Identification
 from hasplib.campus.survey import Condition, Deficiency
+from hasplib.cli.common import as_day, as_moment, day_option, moment_option
 from hasplib.control.review import Answer
 from hasplib.services.access import KeyedAlikeService, ReviewService
 from hasplib.services.facilities import LockoutService, SurveyService
 
-NOW = click.option("--at", "moment", type=click.DateTime(), default=None, help="when it happened")
-DAY = click.option("--on", "day", type=click.DateTime(["%Y-%m-%d"]), default=None)
-
-
-def _moment(moment: datetime | None) -> datetime:
-    return moment if moment is not None else datetime.now()
-
-
-def _day(day: datetime | None) -> date:
-    return day.date() if day is not None else date.today()
+NOW = moment_option()
+DAY = day_option()
 
 
 @click.group("doors")
@@ -53,7 +44,7 @@ def lockout_series(shop) -> None:
 def lockout(shop, opening, keyholder, moment) -> None:
     """Log a lockout call."""
     with shop.session() as session:
-        row = LockoutService(session).log(opening, keyholder, _moment(moment))
+        row = LockoutService(session).log(opening, keyholder, as_moment(moment))
         click.echo(f"{row.number} logged for {keyholder} at {opening}")
 
 
@@ -65,7 +56,7 @@ def lockout(shop, opening, keyholder, moment) -> None:
 def attend(shop, number, technician, moment) -> None:
     """Record who went."""
     with shop.session() as session:
-        LockoutService(session).attend(number, technician, _moment(moment))
+        LockoutService(session).attend(number, technician, as_moment(moment))
         click.echo(f"{number} attended by {technician}")
 
 
@@ -81,7 +72,7 @@ def attend(shop, number, technician, moment) -> None:
 def let_in(shop, number, how, moment) -> None:
     """Open the door, recording how they were identified."""
     with shop.session() as session:
-        LockoutService(session).open_door(number, Identification(how), _moment(moment))
+        LockoutService(session).open_door(number, Identification(how), as_moment(moment))
         click.echo(f"{number} opened, identified by {how}")
 
 
@@ -92,7 +83,7 @@ def let_in(shop, number, how, moment) -> None:
 def survey_start(shop, building, day) -> None:
     """Start a walk round a building."""
     with shop.session() as session:
-        row = SurveyService(session).start(building, _day(day))
+        row = SurveyService(session).start(building, as_day(day))
         click.echo(f"survey of {row.building_code} opened for {row.walked_on}")
 
 
@@ -117,7 +108,7 @@ def survey_line(shop, building, opening, surveyor, condition, faults, day) -> No
     with shop.session() as session:
         SurveyService(session).record(
             building,
-            _day(day),
+            as_day(day),
             opening,
             surveyor,
             Condition[condition.upper()],
@@ -133,7 +124,7 @@ def survey_line(shop, building, opening, surveyor, condition, faults, day) -> No
 def survey(shop, building, day) -> None:
     """Print one walk, worst door first."""
     with shop.session() as session:
-        walk = SurveyService(session).survey(building, _day(day))
+        walk = SurveyService(session).survey(building, as_day(day))
         click.echo(f"{walk.building} {walk.walked_on}, {len(walk)} doors")
         for line in walk.worst_first():
             click.echo(f"  {line.describe()}")
@@ -147,7 +138,7 @@ def survey(shop, building, day) -> None:
 def review_open(shop, department, due, day) -> None:
     """Open a review and freeze what the department holds."""
     with shop.session() as session:
-        row = ReviewService(session).open_review(department, _day(day), due.date())
+        row = ReviewService(session).open_review(department, as_day(day), due.date())
         click.echo(f"{row.department} review opened, due {row.due_on}")
 
 
@@ -170,7 +161,7 @@ def review_answer(shop, department, tag, answer, opened, day) -> None:
         "unknown": Answer.UNKNOWN,
     }[answer]
     with shop.session() as session:
-        ReviewService(session).answer(department, opened.date(), tag, wanted, _day(day))
+        ReviewService(session).answer(department, opened.date(), tag, wanted, as_day(day))
         click.echo(f"{tag} {wanted.value}")
 
 
