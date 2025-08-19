@@ -8,6 +8,12 @@ be tested without a keying system and a mapper be tested without a database.
 The base class is small on purpose. The interesting methods are the ones
 underneath it, because those are the questions the shop actually asks, and a
 repository whose only methods are get and all is a table with extra steps.
+
+What the base does carry is the shape every one of those questions has: pick
+a model, narrow it, sort it, hand back a sequence. That used to be written
+out three lines at a time in about thirty places, and the sort order was
+quietly missing from four of them, which is the sort of thing nobody notices
+until a report prints in insertion order on one machine and not another.
 """
 
 from __future__ import annotations
@@ -17,7 +23,8 @@ from datetime import date
 from typing import Any, Generic, TypeVar
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import InstrumentedAttribute, Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from hasplib.errors import NotFoundError
 from hasplib.persistence.base import Base
@@ -32,6 +39,9 @@ from hasplib.persistence.models.reference import ChartRow
 from hasplib.persistence.models.rekey import IncidentRow, RetiredBittingRow, WorkOrderRow
 
 RowType = TypeVar("RowType", bound=Base)
+OtherRow = TypeVar("OtherRow", bound=Base)
+Clause = ColumnElement[bool]
+Order = InstrumentedAttribute[Any] | ColumnElement[Any]
 
 
 class Repository(Generic[RowType]):
@@ -39,6 +49,7 @@ class Repository(Generic[RowType]):
 
     model: type[RowType]
     noun: str = "row"
+    order: tuple[Order, ...] = ()
 
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -64,7 +75,7 @@ class Repository(Generic[RowType]):
         self.session.delete(row)
 
     def all(self) -> Sequence[RowType]:
-        return self.session.execute(select(self.model)).scalars().all()
+        return self.rows()
 
     def count(self) -> int:
         return int(self.session.execute(select(func.count()).select_from(self.model)).scalar_one())
@@ -72,129 +83,136 @@ class Repository(Generic[RowType]):
     def exists(self, key: Any) -> bool:
         return self.find(key) is not None
 
+    def rows(self, *narrow: Clause, order: Order | None = None) -> Sequence[RowType]:
+        """This repository's own rows, narrowed and in its usual order."""
+        sorting = self.order if order is None else (order,)
+        return self.rows_of(self.model, *narrow, order=sorting)
+
+    def one(self, *narrow: Clause) -> RowType | None:
+        """The single row that matches, or nothing, refusing on two."""
+        return self.session.execute(select(self.model).where(*narrow)).scalar_one_or_none()
+
+    def rows_of(
+        self, model: type[OtherRow], *narrow: Clause, order: Sequence[Order] = ()
+    ) -> Sequence[OtherRow]:
+        """Somebody else's rows, for the questions that cross a table.
+
+        The sort columns arrive as a tuple rather than one column because
+        a mapped column on a class body is a descriptor, and reading one
+        back off ``self`` hands you the value it would have on a row
+        rather than the column you wrote down.
+        """
+        statement = select(model).where(*narrow)
+        if order:
+            statement = statement.order_by(*order)
+        return self.session.execute(statement).scalars().all()
+
 
 class ChartRepository(Repository[ChartRow]):
     model = ChartRow
     noun = "chart"
+    order = (ChartRow.family,)
 
     def by_family(self, manufacturer: str, family: str) -> ChartRow | None:
-        statement = select(ChartRow).where(
-            ChartRow.manufacturer == manufacturer, ChartRow.family == family
-        )
-        return self.session.execute(statement).scalar_one_or_none()
+        return self.one(ChartRow.manufacturer == manufacturer, ChartRow.family == family)
 
     def for_manufacturer(self, manufacturer: str) -> Sequence[ChartRow]:
-        statement = select(ChartRow).where(ChartRow.manufacturer == manufacturer)
-        return self.session.execute(statement.order_by(ChartRow.family)).scalars().all()
+        return self.rows(ChartRow.manufacturer == manufacturer)
 
 
 class SystemRepository(Repository[SystemRow]):
     model = SystemRow
     noun = "keying system"
+    order = (SystemRow.name,)
 
     def by_name(self, name: str) -> SystemRow | None:
-        statement = select(SystemRow).where(SystemRow.name == name)
-        return self.session.execute(statement).scalar_one_or_none()
+        return self.one(SystemRow.name == name)
 
     def live(self) -> Sequence[SystemRow]:
-        statement = select(SystemRow).where(SystemRow.archived.is_(False))
-        return self.session.execute(statement.order_by(SystemRow.name)).scalars().all()
+        return self.rows(SystemRow.archived.is_(False))
 
     def entries(self, system_id: int) -> Sequence[ScheduleEntryRow]:
-        statement = select(ScheduleEntryRow).where(ScheduleEntryRow.system_id == system_id)
-        return self.session.execute(statement).scalars().all()
+        return self.rows_of(ScheduleEntryRow, ScheduleEntryRow.system_id == system_id)
 
     def groups(self, system_id: int) -> Sequence[GroupRow]:
-        statement = select(GroupRow).where(GroupRow.system_id == system_id)
-        return self.session.execute(statement.order_by(GroupRow.name)).scalars().all()
+        return self.rows_of(GroupRow, GroupRow.system_id == system_id, order=(GroupRow.name,))
 
     def uncut_symbols(self, system_id: int) -> Sequence[ScheduleEntryRow]:
-        statement = select(ScheduleEntryRow).where(
-            ScheduleEntryRow.system_id == system_id, ScheduleEntryRow.bitting.is_(None)
+        return self.rows_of(
+            ScheduleEntryRow,
+            ScheduleEntryRow.system_id == system_id,
+            ScheduleEntryRow.bitting.is_(None),
         )
-        return self.session.execute(statement).scalars().all()
 
 
 class OpeningRepository(Repository[OpeningRow]):
     model = OpeningRow
     noun = "opening"
+    order = (OpeningRow.number,)
 
     def in_building(self, code: str) -> Sequence[OpeningRow]:
-        statement = select(OpeningRow).where(OpeningRow.building_code == code)
-        return self.session.execute(statement.order_by(OpeningRow.number)).scalars().all()
+        return self.rows(OpeningRow.building_code == code)
 
     def exterior(self) -> Sequence[OpeningRow]:
-        statement = select(OpeningRow).where(OpeningRow.exterior.is_(True))
-        return self.session.execute(statement.order_by(OpeningRow.number)).scalars().all()
+        return self.rows(OpeningRow.exterior.is_(True))
 
     def buildings(self) -> Sequence[BuildingRow]:
-        statement = select(BuildingRow).order_by(BuildingRow.code)
-        return self.session.execute(statement).scalars().all()
+        return self.rows_of(BuildingRow, order=(BuildingRow.code,))
 
 
 class CylinderRepository(Repository[CylinderRow]):
     model = CylinderRow
     noun = "cylinder"
+    order = (CylinderRow.serial,)
 
     def on_opening(self, number: str) -> Sequence[CylinderRow]:
-        statement = select(CylinderRow).where(CylinderRow.installed_at == number)
-        return self.session.execute(statement.order_by(CylinderRow.serial)).scalars().all()
+        return self.rows(CylinderRow.installed_at == number)
 
     def on_the_shelf(self) -> Sequence[CylinderRow]:
-        statement = select(CylinderRow).where(CylinderRow.installed_at.is_(None))
-        return self.session.execute(statement.order_by(CylinderRow.serial)).scalars().all()
+        return self.rows(CylinderRow.installed_at.is_(None))
 
     def in_group(self, group_id: int) -> Sequence[CylinderRow]:
-        statement = select(CylinderRow).where(CylinderRow.group_id == group_id)
-        return self.session.execute(statement.order_by(CylinderRow.serial)).scalars().all()
+        return self.rows(CylinderRow.group_id == group_id)
 
     def unkeyed(self) -> Sequence[CylinderRow]:
-        statement = select(CylinderRow).where(
-            CylinderRow.installed_at.is_not(None), CylinderRow.group_id.is_(None)
-        )
-        return self.session.execute(statement.order_by(CylinderRow.serial)).scalars().all()
+        """Installed, and nobody wrote down what it answers to."""
+        return self.rows(CylinderRow.installed_at.is_not(None), CylinderRow.group_id.is_(None))
 
 
 class KeyholderRepository(Repository[KeyholderRow]):
     model = KeyholderRow
     noun = "keyholder"
+    order = (KeyholderRow.identifier,)
 
     def in_department(self, department: str) -> Sequence[KeyholderRow]:
-        statement = select(KeyholderRow).where(KeyholderRow.department == department)
-        return self.session.execute(statement.order_by(KeyholderRow.identifier)).scalars().all()
+        return self.rows(KeyholderRow.department == department)
 
     def lapsed(self, today: date) -> Sequence[KeyholderRow]:
-        statement = select(KeyholderRow).where(
-            KeyholderRow.standing == "active", KeyholderRow.ends_on < today
+        return self.rows(
+            KeyholderRow.standing == "active",
+            KeyholderRow.ends_on < today,
+            order=KeyholderRow.ends_on,
         )
-        return self.session.execute(statement.order_by(KeyholderRow.ends_on)).scalars().all()
 
 
 class KeyRepository(Repository[IssuedKeyRow]):
     model = IssuedKeyRow
     noun = "key"
+    order = (IssuedKeyRow.tag,)
 
     def out(self) -> Sequence[IssuedKeyRow]:
-        statement = select(IssuedKeyRow).where(IssuedKeyRow.state == "out")
-        return self.session.execute(statement.order_by(IssuedKeyRow.tag)).scalars().all()
+        return self.rows(IssuedKeyRow.state == "out")
 
     def held_by(self, identifier: str) -> Sequence[IssuedKeyRow]:
-        statement = select(IssuedKeyRow).where(
-            IssuedKeyRow.keyholder == identifier, IssuedKeyRow.state == "out"
-        )
-        return self.session.execute(statement.order_by(IssuedKeyRow.tag)).scalars().all()
+        return self.rows(IssuedKeyRow.keyholder == identifier, IssuedKeyRow.state == "out")
 
     def overdue(self, today: date) -> Sequence[IssuedKeyRow]:
-        statement = select(IssuedKeyRow).where(
-            IssuedKeyRow.state == "out", IssuedKeyRow.due_on < today
+        return self.rows(
+            IssuedKeyRow.state == "out", IssuedKeyRow.due_on < today, order=IssuedKeyRow.due_on
         )
-        return self.session.execute(statement.order_by(IssuedKeyRow.due_on)).scalars().all()
 
     def cut_to(self, symbol: str) -> Sequence[IssuedKeyRow]:
-        statement = select(IssuedKeyRow).where(
-            IssuedKeyRow.symbol == symbol, IssuedKeyRow.state == "out"
-        )
-        return self.session.execute(statement.order_by(IssuedKeyRow.tag)).scalars().all()
+        return self.rows(IssuedKeyRow.symbol == symbol, IssuedKeyRow.state == "out")
 
     def deposits_held(self) -> int:
         statement = select(func.coalesce(func.sum(IssuedKeyRow.deposit_cents), 0)).where(
@@ -206,56 +224,49 @@ class KeyRepository(Repository[IssuedKeyRow]):
 class RequestRepository(Repository[KeyRequestRow]):
     model = KeyRequestRow
     noun = "request"
+    order = (KeyRequestRow.number,)
 
     def in_state(self, state: str) -> Sequence[KeyRequestRow]:
-        statement = select(KeyRequestRow).where(KeyRequestRow.state == state)
-        return self.session.execute(statement.order_by(KeyRequestRow.number)).scalars().all()
+        return self.rows(KeyRequestRow.state == state)
 
     def for_keyholder(self, identifier: str) -> Sequence[KeyRequestRow]:
-        statement = select(KeyRequestRow).where(KeyRequestRow.keyholder == identifier)
-        return self.session.execute(statement.order_by(KeyRequestRow.raised_on)).scalars().all()
+        return self.rows(KeyRequestRow.keyholder == identifier, order=KeyRequestRow.raised_on)
 
 
 class IncidentRepository(Repository[IncidentRow]):
     model = IncidentRow
     noun = "incident"
+    order = (IncidentRow.number,)
 
     def since(self, when: date) -> Sequence[IncidentRow]:
-        statement = select(IncidentRow).where(IncidentRow.reported_on >= when)
-        return self.session.execute(statement.order_by(IncidentRow.reported_on)).scalars().all()
+        return self.rows(IncidentRow.reported_on >= when, order=IncidentRow.reported_on)
 
     def by_severity(self, severity: str) -> Sequence[IncidentRow]:
-        statement = select(IncidentRow).where(IncidentRow.severity == severity)
-        return self.session.execute(statement.order_by(IncidentRow.number)).scalars().all()
+        return self.rows(IncidentRow.severity == severity)
 
 
 class WorkOrderRepository(Repository[WorkOrderRow]):
     model = WorkOrderRow
     noun = "work order"
+    order = (WorkOrderRow.number,)
 
     def open_orders(self) -> Sequence[WorkOrderRow]:
-        statement = select(WorkOrderRow).where(
-            WorkOrderRow.state.in_(("drafted", "scheduled", "started"))
-        )
-        return self.session.execute(statement.order_by(WorkOrderRow.number)).scalars().all()
+        return self.rows(WorkOrderRow.state.in_(("drafted", "scheduled", "started")))
 
     def for_technician(self, technician: str) -> Sequence[WorkOrderRow]:
-        statement = select(WorkOrderRow).where(WorkOrderRow.technician == technician)
-        return self.session.execute(statement.order_by(WorkOrderRow.number)).scalars().all()
+        return self.rows(WorkOrderRow.technician == technician)
 
     def due_on(self, when: date) -> Sequence[WorkOrderRow]:
-        statement = select(WorkOrderRow).where(WorkOrderRow.scheduled_for == when)
-        return self.session.execute(statement.order_by(WorkOrderRow.number)).scalars().all()
+        return self.rows(WorkOrderRow.scheduled_for == when)
 
 
 class QuarantineRepository(Repository[RetiredBittingRow]):
     model = RetiredBittingRow
     noun = "retired cut"
+    order = (RetiredBittingRow.id,)
 
     def by_bitting(self, rendered: str) -> RetiredBittingRow | None:
-        statement = select(RetiredBittingRow).where(RetiredBittingRow.bitting == rendered)
-        return self.session.execute(statement).scalar_one_or_none()
+        return self.one(RetiredBittingRow.bitting == rendered)
 
     def permanent(self) -> Sequence[RetiredBittingRow]:
-        statement = select(RetiredBittingRow).where(RetiredBittingRow.reason == "compromised")
-        return self.session.execute(statement.order_by(RetiredBittingRow.id)).scalars().all()
+        return self.rows(RetiredBittingRow.reason == "compromised")

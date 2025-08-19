@@ -343,3 +343,56 @@ def test_add_all_puts_a_batch_in_at_once(session):
     charts = ChartRepository(session)
     charts.add_all([])
     assert charts.count() == 0
+
+
+def test_the_usual_order_is_the_one_the_repository_names(session):
+    a_chart(session, "60 five pin", "Sargent")
+    a_chart(session, "LA six pin", "Sargent")
+    assert [row.family for row in ChartRepository(session).all()] == [
+        "60 five pin",
+        "LA six pin",
+    ]
+
+
+def test_a_caller_can_sort_it_some_other_way(session):
+    a_chart(session, "60 five pin", "Sargent")
+    a_chart(session, "LA six pin", "Sargent")
+    charts = ChartRepository(session)
+    found = charts.rows(order=ChartRow.family.desc())
+    assert [row.family for row in found] == ["LA six pin", "60 five pin"]
+
+
+def test_narrowing_and_sorting_happen_together(session):
+    a_chart(session, "60 five pin", "Corbin")
+    a_chart(session, "LA six pin", "Sargent")
+    a_chart(session, "A2 seven pin", "Sargent")
+    found = ChartRepository(session).rows(ChartRow.manufacturer == "Sargent")
+    assert [row.family for row in found] == ["A2 seven pin", "LA six pin"]
+
+
+def test_asking_for_one_row_that_is_not_there_gives_nothing(session):
+    assert ChartRepository(session).one(ChartRow.family == "nothing") is None
+
+
+def test_asking_for_one_row_when_there_are_two_is_an_error(session):
+    from sqlalchemy.exc import MultipleResultsFound
+
+    a_chart(session, "LA six pin", "Sargent")
+    a_chart(session, "LA six pin", "Corbin")
+    charts = ChartRepository(session)
+    with pytest.raises(MultipleResultsFound):
+        charts.one(ChartRow.family == "LA six pin")
+
+
+def test_a_repository_can_reach_another_table(session):
+    session.add_all(
+        [BuildingRow(code="VOS", name="vosberg hall"), BuildingRow(code="MOO", name="moore")]
+    )
+    session.flush()
+    found = OpeningRepository(session).buildings()
+    assert [row.code for row in found] == ["MOO", "VOS"]
+
+
+def test_an_unsorted_reach_across_gives_back_what_it_finds(session):
+    charts = ChartRepository(session)
+    assert list(charts.rows_of(BuildingRow)) == []
