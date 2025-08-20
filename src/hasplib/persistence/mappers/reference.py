@@ -14,6 +14,7 @@ tree is grown from the root down.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import date
 
 from hasplib.errors import KeywayError
 from hasplib.persistence.models.reference import BlankRow, ChartRow, KeywaySectionRow
@@ -63,8 +64,28 @@ def section_to_row(
         code=section.code,
         manufacturer=section.manufacturer,
         restricted=section.restricted,
+        patent_expires=_expiry(section),
         parent_id=parent_id,
     )
+
+
+def _expiry(section: KeywaySection) -> date | None:
+    """The patent date, which the section carries as the catalogue prints it.
+
+    This used to be dropped on the way in, so a family written down and read
+    back came out with every patent date gone and every section looking like
+    it was restricted forever.
+    """
+    if section.patent_expires is None:
+        return None
+    try:
+        return date.fromisoformat(section.patent_expires)
+    except ValueError as bad:
+        raise KeywayError(
+            "that section has a patent date nobody can read",
+            section=section.code,
+            written=section.patent_expires,
+        ) from bad
 
 
 def family_to_rows(family: KeywayFamily) -> list[KeywaySectionRow]:
@@ -76,6 +97,16 @@ def family_to_rows(family: KeywayFamily) -> list[KeywaySectionRow]:
     """
     ordered = sorted(family.codes(), key=family.depth_of)
     return [section_to_row(family, family.section(code), None) for code in ordered]
+
+
+def parents_of(family: KeywayFamily) -> dict[str, str | None]:
+    """Each section code against the code above it, in the same order."""
+    ordered = sorted(family.codes(), key=family.depth_of)
+    found: dict[str, str | None] = {}
+    for code in ordered:
+        parent = family.parent_of(code)
+        found[code] = parent.code if parent is not None else None
+    return found
 
 
 def family_from_rows(name: str, rows: Sequence[KeywaySectionRow]) -> KeywayFamily:
