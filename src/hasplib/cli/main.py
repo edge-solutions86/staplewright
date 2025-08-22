@@ -92,6 +92,7 @@ def tables(shop: Shop) -> None:
 
 from hasplib.cli.counter import counter  # noqa: E402
 from hasplib.cli.doors import doors  # noqa: E402
+from hasplib.cli.keyways import keyways  # noqa: E402
 from hasplib.cli.rekey import rekey  # noqa: E402
 from hasplib.cli.systems import systems  # noqa: E402
 
@@ -99,6 +100,7 @@ cli.add_command(systems)
 cli.add_command(counter)
 cli.add_command(rekey)
 cli.add_command(doors)
+cli.add_command(keyways)
 
 
 def run(argv: list[str] | None = None) -> int:
