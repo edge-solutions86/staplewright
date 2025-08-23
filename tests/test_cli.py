@@ -170,3 +170,60 @@ def test_the_entry_point_returns_zero_on_success(shop):
 
 def test_the_entry_point_returns_two_on_a_bad_command(shop):
     assert run(["--database", shop, "nonsense"]) == 2
+
+
+def test_the_self_check_prints_a_report(shop):
+    found = call(shop, "check", "--on", "2025-06-30")
+    assert found.output.splitlines()[0] == "self check at 2025-06-30"
+
+
+def test_the_self_check_can_be_told_to_say_nothing(shop):
+    found = call(shop, "check", "--on", "2025-06-30", "--quiet")
+    assert found.output == ""
+
+
+def test_the_self_check_defaults_to_today(shop):
+    assert call(shop, "check").exit_code in (0, 1)
+
+
+def test_a_fault_makes_the_self_check_exit_one(shop):
+    from datetime import date
+
+    from hasplib.persistence.engine import build_engine, build_sessions
+    from hasplib.persistence.models.control import IssuedKeyRow, KeyholderRow
+
+    engine = build_engine(shop)
+    session = build_sessions(engine)()
+    session.add(
+        KeyholderRow(
+            identifier="jsalo",
+            name="j salo",
+            affiliation="staff",
+            department="grounds",
+            standing="active",
+            ends_on=date(2024, 1, 1),
+        )
+    )
+    session.flush()
+    session.add(
+        IssuedKeyRow(
+            tag="41207",
+            symbol="AA1",
+            keyholder="jsalo",
+            issued_on=date(2023, 9, 1),
+            due_on=date(2024, 6, 1),
+            state="out",
+        )
+    )
+    session.commit()
+    session.close()
+    engine.dispose()
+    found = call(shop, "check", "--on", "2025-06-30")
+    assert found.exit_code == 1
+    assert "keys out to lapsed holders" in found.output
+
+
+def test_a_shop_with_nothing_in_it_answers_for_nothing(shop):
+    found = call(shop, "check", "--on", "2025-06-30")
+    assert found.exit_code == 0
+    assert "nothing to answer for" in found.output

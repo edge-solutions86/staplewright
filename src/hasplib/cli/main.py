@@ -80,6 +80,29 @@ def settings(shop: Shop) -> None:
         click.echo(line)
 
 
+@cli.command("check")
+@click.option("--on", "when", type=click.DateTime(["%Y-%m-%d"]), default=None)
+@click.option("--quiet", is_flag=True, help="print nothing, just set the exit code")
+@click.pass_obj
+def check(shop: Shop, when, quiet: bool) -> None:
+    """Run the self checks over the database and say what is wrong.
+
+    Exits one on a fault and nought on anything else, so a nightly run can
+    be wired to something that shouts without anybody parsing the output.
+    """
+    from datetime import date
+
+    from hasplib.health import exit_code, health_report, run_checks
+
+    today = when.date() if when is not None else date.today()
+    with shop.session() as session:
+        findings = run_checks(session, today)
+        if not quiet:
+            for line in health_report(session, today):
+                click.echo(line)
+    raise SystemExit(exit_code(findings))
+
+
 @cli.command("tables")
 @click.pass_obj
 def tables(shop: Shop) -> None:
