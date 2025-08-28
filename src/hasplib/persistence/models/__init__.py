@@ -42,6 +42,11 @@ from hasplib.persistence.models.rekey import (
     WorkOrderLineRow,
     WorkOrderRow,
 )
+from hasplib.persistence.models.stock import (
+    PurchaseLineRow,
+    PurchaseOrderRow,
+    StockLineRow,
+)
 
 __all__ = [
     "AccessGroupRow",
@@ -65,12 +70,15 @@ __all__ = [
     "KeywaySectionRow",
     "LockoutRow",
     "OpeningRow",
+    "PurchaseLineRow",
+    "PurchaseOrderRow",
     "RetiredBittingRow",
     "ReviewLineRow",
     "ReviewRow",
     "ScheduleEntryRow",
     "SurveyLineRow",
     "SurveyRow",
+    "StockLineRow",
     "SystemRow",
     "WorkOrderLineRow",
     "WorkOrderRow",

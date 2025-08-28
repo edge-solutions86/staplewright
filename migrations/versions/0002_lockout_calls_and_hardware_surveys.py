@@ -2,7 +2,7 @@
 
 Revision ID: 0002
 Revises: 0001
-Created: 2026-09-05 01:09:25.177357
+Created: 2025-06-07 12:33:04.000000
 """
 
 from collections.abc import Sequence
