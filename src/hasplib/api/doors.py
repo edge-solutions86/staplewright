@@ -18,8 +18,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 
+from hasplib.api.wiring import service_dependency
 from hasplib.campus.lockouts import Identification
 from hasplib.campus.survey import Condition, Deficiency
 from hasplib.persistence.mappers.facilities import deficiencies_from_text
@@ -89,14 +89,8 @@ def line_shape(row: SurveyLineRow) -> dict[str, Any]:
 def build_router(shop: Any) -> APIRouter:
     router = APIRouter(tags=["doors"])
 
-    def session() -> Any:
-        yield from shop.open_session()
-
-    def lockouts(db: Session = Depends(session)) -> LockoutService:
-        return LockoutService(db)
-
-    def surveys(db: Session = Depends(session)) -> SurveyService:
-        return SurveyService(db)
+    lockouts = service_dependency(LockoutService, shop)
+    surveys = service_dependency(SurveyService, shop)
 
     @router.post("/lockouts", status_code=201)
     def log(body: NewLockout, work: LockoutService = Depends(lockouts)) -> dict[str, Any]:

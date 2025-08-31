@@ -12,8 +12,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 
+from hasplib.api.wiring import service_dependency
 from hasplib.keys.bitting import Bitting
 from hasplib.keys.symbol import KeySymbol
 from hasplib.services.systems import SystemService
@@ -55,11 +55,7 @@ def entry_shape(entry: Any) -> dict[str, Any]:
 def build_router(shop: Any) -> APIRouter:
     router = APIRouter(prefix="/systems", tags=["systems"])
 
-    def session() -> Any:
-        yield from shop.open_session()
-
-    def service(db: Session = Depends(session)) -> SystemService:
-        return SystemService(db, shop.settings.cutting)
+    service = service_dependency(SystemService, shop, shop.settings.cutting)
 
     @router.post("", status_code=201)
     def open_system(body: NewSystem, work: SystemService = Depends(service)) -> dict[str, Any]:

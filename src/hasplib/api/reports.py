@@ -16,9 +16,9 @@ from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
+from hasplib.api.wiring import PLAIN, page, session_dependency
 from hasplib.control.notices import NoticeLog, notices_due
 from hasplib.persistence.loaders import (
     load_coverage,
@@ -36,27 +36,19 @@ from hasplib.reports.control import (
     notice_run,
     overdue_report,
 )
-from hasplib.reports.page import as_text
 from hasplib.reports.schedule import bitting_list, schedule_report, tree_report
 from hasplib.reports.statistics import campus_numbers, exposure, keys_by_building, summary
-
-
-def _page(lines: tuple[str, ...], plain: bool) -> Any:
-    if plain:
-        return PlainTextResponse(as_text(lines))
-    return {"lines": list(lines)}
 
 
 def build_router(shop: Any) -> APIRouter:
     router = APIRouter(prefix="/reports", tags=["reports"])
 
-    def session() -> Any:
-        yield from shop.open_session()
+    session = session_dependency(shop)
 
     @router.get("/systems/{name}/schedule")
     def schedule(
         name: str,
-        plain: bool = Query(default=False, description="give it back as text"),
+        plain: bool = PLAIN,
         shape: str = Query(default="schedule", pattern="^(schedule|bittings|tree)$"),
         db: Session = Depends(session),
     ) -> Any:
@@ -73,56 +65,50 @@ def build_router(shop: Any) -> APIRouter:
             lines = tree_report(drawn)
         else:
             lines = schedule_report(drawn, name)
-        return _page(lines, plain)
+        return page(lines, plain)
 
     @router.get("/keyholders/{identifier}/statement")
     def statement(
         identifier: str,
         on: date | None = None,
-        plain: bool = Query(default=False),
+        plain: bool = PLAIN,
         db: Session = Depends(session),
     ) -> Any:
         directory = load_directory(db)
         lines = keyholder_statement(
             directory.person(identifier), load_ledger(db), load_deposits(db), on
         )
-        return _page(lines, plain)
+        return page(lines, plain)
 
     @router.get("/keyholders/{identifier}/deposits")
-    def deposits(
-        identifier: str, plain: bool = Query(default=False), db: Session = Depends(session)
-    ) -> Any:
-        return _page(deposit_statement(load_deposits(db), identifier), plain)
+    def deposits(identifier: str, plain: bool = PLAIN, db: Session = Depends(session)) -> Any:
+        return page(deposit_statement(load_deposits(db), identifier), plain)
 
     @router.get("/departments/{department}")
     def department(
         department: str,
         on: date,
-        plain: bool = Query(default=False),
+        plain: bool = PLAIN,
         db: Session = Depends(session),
     ) -> Any:
         lines = department_summary(load_directory(db), load_ledger(db), department, on)
-        return _page(lines, plain)
+        return page(lines, plain)
 
     @router.get("/overdue")
-    def overdue(
-        on: date, plain: bool = Query(default=False), db: Session = Depends(session)
-    ) -> Any:
-        return _page(overdue_report(load_ledger(db), on), plain)
+    def overdue(on: date, plain: bool = PLAIN, db: Session = Depends(session)) -> Any:
+        return page(overdue_report(load_ledger(db), on), plain)
 
     @router.get("/letters")
-    def letters(
-        on: date, plain: bool = Query(default=False), db: Session = Depends(session)
-    ) -> Any:
+    def letters(on: date, plain: bool = PLAIN, db: Session = Depends(session)) -> Any:
         due = notices_due(load_ledger(db), on, NoticeLog(), shop.settings.notices)
-        return _page(notice_run(due), plain)
+        return page(notice_run(due), plain)
 
     @router.get("/campus")
-    def campus(plain: bool = Query(default=False), db: Session = Depends(session)) -> Any:
+    def campus(plain: bool = PLAIN, db: Session = Depends(session)) -> Any:
         numbers = campus_numbers(
             load_openings(db), load_coverage(db), load_ledger(db), load_deposits(db)
         )
-        return _page(summary(numbers), plain)
+        return page(summary(numbers), plain)
 
     @router.get("/exposure")
     def widest(limit: int = Query(default=5, ge=1, le=50), db: Session = Depends(session)) -> Any:

@@ -24,6 +24,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from hasplib.api.wiring import session_dependency
 from hasplib.pinning.cylinder import CylinderPinning
 from hasplib.pinning.segments import DriverProfile, SegmentKind, standard_kit
 from hasplib.pinning.stack import PinningSpec
@@ -74,8 +75,7 @@ def stack_shape(pinning: CylinderPinning) -> list[dict[str, Any]]:
 def build_router(shop: Any) -> APIRouter:
     router = APIRouter(prefix="/pinning", tags=["pinning"])
 
-    def session() -> Any:
-        yield from shop.open_session()
+    session = session_dependency(shop)
 
     def spec(
         maker: str = Query(default=DEFAULT_MAKER, alias="manufacturer"),

@@ -14,8 +14,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 
+from hasplib.api.wiring import service_dependency
 from hasplib.rekey.compromise import Cause
 from hasplib.services.incidents import IncidentService
 
@@ -64,11 +64,7 @@ def assessment_shape(found: Any) -> dict[str, Any]:
 def build_router(shop: Any) -> APIRouter:
     router = APIRouter(prefix="/incidents", tags=["incidents"])
 
-    def session() -> Any:
-        yield from shop.open_session()
-
-    def service(db: Session = Depends(session)) -> IncidentService:
-        return IncidentService(db, shop.settings.scope)
+    service = service_dependency(IncidentService, shop, shop.settings.scope)
 
     @router.post("", status_code=201)
     def report(body: Report, work: IncidentService = Depends(service)) -> dict[str, Any]:

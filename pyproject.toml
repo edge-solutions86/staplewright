@@ -53,8 +53,10 @@ select = ["E", "F", "I", "B", "UP", "C4", "SIM", "RET"]
 
 [tool.ruff.lint.per-file-ignores]
 # A test that a property refuses has to evaluate the property on its own, and
-# there is nothing to assign it to when the point is that it raises.
-"tests/*" = ["B018"]
+# there is nothing to assign it to when the point is that it raises. Tests of
+# the api wiring declare routes, and a route declares its dependencies as call
+# defaults, which is the framework calling convention and not a mistake.
+"tests/*" = ["B008", "B018"]
 # Routes declare their dependencies as call defaults. That is the framework
 # calling convention and there is no other way to write it.
 "src/hasplib/api/*" = ["B008"]

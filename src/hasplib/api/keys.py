@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from hasplib.api.wiring import service_dependency, session_dependency
 from hasplib.persistence.loaders import load_deposits, load_ledger
 from hasplib.services.counter import CounterService
 
@@ -72,11 +73,9 @@ def key_shape(row: Any) -> dict[str, Any]:
 def build_router(shop: Any) -> APIRouter:
     router = APIRouter(tags=["counter"])
 
-    def session() -> Any:
-        yield from shop.open_session()
+    session = session_dependency(shop)
 
-    def service(db: Session = Depends(session)) -> CounterService:
-        return CounterService(db, shop.settings.deposits)
+    service = service_dependency(CounterService, shop, shop.settings.deposits)
 
     @router.post("/requests", status_code=201)
     def raise_request(body: NewRequest, work: CounterService = Depends(service)) -> dict[str, Any]:
