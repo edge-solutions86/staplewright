@@ -158,10 +158,16 @@ def test_a_count_of_less_than_nothing_is_refused(session):
         stocked(session).count("1145A", -1, LATER)
 
 
-def test_a_count_does_not_move_the_ledger_total(session):
+def test_a_count_keeps_the_two_totals_agreeing(session):
     service = stocked(session)
     service.count("1145A", 188, LATER)
-    assert service.ledger_total("1145A") == 200
+    assert service.ledger_total("1145A") == service.on_hand("1145A") == 188
+
+
+def test_the_gap_a_count_found_is_on_its_line(session):
+    service = stocked(session)
+    service.count("1145A", 188, LATER)
+    assert [line.adjustment for line in service.movements("1145A")] == [None, -12]
 
 
 def test_the_reorder_list_is_shortest_first(session):

@@ -47,7 +47,13 @@ class Reconciliation:
 
     @property
     def unaccounted(self) -> int:
-        """What went missing, which is the number the factory asks about."""
+        """What went missing, which is the number the factory asks about.
+
+        This is the sum of what the stocktakes moved. Every other movement is
+        something somebody chose to do and can point at a reason for, so the
+        only brass that is genuinely unaccounted for is the brass a count had
+        to correct.
+        """
         return self.closing - self.expected
 
     @property
@@ -91,9 +97,7 @@ def reconcile(
 
 
 def _delta(line: StockLineRow) -> int:
-    """What one line did to the drawer, counting a stocktake as its own gap."""
-    if line.movement == "counted":
-        return 0
+    """What one line did to the drawer, a stocktake included."""
     return line.signed
 
 

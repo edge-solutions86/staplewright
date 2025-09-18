@@ -38,6 +38,10 @@ class StockLineRow(Base):
             name="movement_is_known",
         ),
         CheckConstraint("movement <> 'scrapped' or note <> ''", name="a_scrapping_says_why"),
+        CheckConstraint(
+            "(movement = 'counted') = (adjustment is not null)",
+            name="only_a_count_carries_an_adjustment",
+        ),
         Index("ix_blank_stock_lines_part_day", "part_number", "moved_on"),
     )
 
@@ -49,13 +53,23 @@ class StockLineRow(Base):
     quantity: Mapped[int]
     moved_on: Mapped[date]
     reference: Mapped[Code] = mapped_column(default="")
+    adjustment: Mapped[int | None] = mapped_column(default=None)
     note: Mapped[Note]
 
     blank: Mapped[BlankRow] = relationship()
 
     @property
     def signed(self) -> int:
-        """What this line does to the running total."""
+        """What this line does to the running total.
+
+        A count is the odd one out. Its quantity is what was in the drawer,
+        not what moved, so the movement is the adjustment beside it. Without
+        that column the difference a stocktake found was unrecoverable: the
+        drawer went to the counted number and the ledger had no record of how
+        far it had moved to get there.
+        """
+        if self.movement == "counted":
+            return self.adjustment or 0
         return -self.quantity if self.movement in ("cut", "scrapped") else self.quantity
 
     def __repr__(self) -> str:

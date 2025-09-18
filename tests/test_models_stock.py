@@ -199,7 +199,26 @@ def test_the_lines_for_a_part_come_back_in_the_order_they_happened(session):
     assert [line.movement for line in found] == ["received", "cut"]
 
 
-def test_a_count_line_carries_whatever_the_drawer_said(session):
+def test_a_count_line_moves_the_total_by_what_it_found(session):
     a_blank(session)
-    line = a_line(session, movement="counted", quantity=97, note="annual count")
-    assert line.signed == 97
+    line = a_line(session, movement="counted", quantity=97, adjustment=-3, note="annual count")
+    assert line.quantity == 97
+    assert line.signed == -3
+
+
+def test_a_count_without_an_adjustment_is_refused(session):
+    a_blank(session)
+    with pytest.raises(IntegrityError):
+        a_line(session, movement="counted", quantity=97, note="annual count")
+
+
+def test_a_movement_that_is_not_a_count_carries_no_adjustment(session):
+    a_blank(session)
+    with pytest.raises(IntegrityError):
+        a_line(session, movement="received", quantity=10, adjustment=2)
+
+
+def test_a_count_that_agreed_moves_nothing(session):
+    a_blank(session)
+    line = a_line(session, movement="counted", quantity=97, adjustment=0)
+    assert line.signed == 0

@@ -123,11 +123,12 @@ class StockService:
         """The total worked out from the lines, which should match the column.
 
         Kept separate from ``on_hand`` on purpose. Two ways of arriving at the
-        same number is the only way to notice when one of them is wrong.
+        same number is the only way to notice when one of them is wrong. A
+        count counts here as its adjustment, so a drawer that was found short
+        leaves the two agreeing rather than papering over the gap.
         """
         self.blank(part_number)
-        rows = self.lines.for_part(part_number)
-        return sum(row.signed for row in rows if row.movement != "counted")
+        return sum(row.signed for row in self.lines.for_part(part_number))
 
     def receive(
         self, part_number: str, quantity: int, when: date, reference: str = ""
@@ -168,6 +169,7 @@ class StockService:
             movement="counted",
             quantity=counted,
             moved_on=when,
+            adjustment=result.difference,
             note=note or result.describe(),
         )
         self.session.add(line)

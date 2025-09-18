@@ -44,6 +44,7 @@ def a_line(movement: str, quantity: int, when: date, part: str = "1145A", **over
         "quantity": quantity,
         "moved_on": when,
         "reference": "",
+        "adjustment": None,
         "note": "",
     }
     settings.update(overrides)
@@ -111,9 +112,26 @@ def test_a_clean_run_accounts_for_everything():
 
 
 def test_a_count_inside_the_period_shows_up_as_a_gap():
-    lines = [*a_run(), a_line("counted", 180, date(2025, 5, 2))]
+    lines = [*a_run(), a_line("counted", 180, date(2025, 5, 2), adjustment=-12)]
     found = reconcile(a_blank(), lines, SINCE, UNTIL)
     assert found.counted == 180
+    assert found.unaccounted == -12
+    assert not found.agrees
+
+
+def test_a_count_that_agreed_leaves_the_part_accounted_for():
+    lines = [*a_run(), a_line("counted", 168, date(2025, 5, 2), adjustment=0)]
+    found = reconcile(a_blank(), lines, SINCE, UNTIL)
+    assert found.agrees
+
+
+def test_two_counts_add_their_gaps_up():
+    lines = [
+        a_line("counted", 190, date(2025, 3, 2), adjustment=-10),
+        a_line("counted", 188, date(2025, 5, 2), adjustment=-2),
+    ]
+    found = reconcile(a_blank(), lines, SINCE, UNTIL)
+    assert found.unaccounted == -12
 
 
 def test_a_period_with_nothing_in_it_opens_where_it_closes():
