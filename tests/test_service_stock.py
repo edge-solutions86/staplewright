@@ -294,3 +294,57 @@ def test_a_day_after_everything_moved_is_empty(session):
 
 def test_a_count_result_is_readable_on_its_own():
     assert CountResult("RA4", 10, 10).agrees
+
+
+def test_a_movement_of_less_than_nothing_is_refused(session):
+    with pytest.raises(InputError):
+        StockService(session).cut("RA4", -1, LATER)
+
+
+def test_a_part_that_never_moved_has_an_empty_ledger(session):
+    assert StockService(session).ledger_total("RA4") == 0
+
+
+def test_the_movements_of_a_part_nobody_stocks_is_a_404(session):
+    with pytest.raises(NotFoundError):
+        StockService(session).movements("9999Z")
+
+
+def test_the_lines_since_a_day_leave_out_what_came_before(session):
+    service = stocked(session)
+    service.cut("1145A", 1, LATER, reference="41207")
+    found = service.lines.since(LATER)
+    assert [line.movement for line in found] == ["cut"]
+
+
+def test_the_restricted_parts_are_the_ones_the_factory_watches(session):
+    service = StockService(session)
+    assert [row.part_number for row in service.blanks.restricted()] == ["1145A"]
+
+
+def test_the_parts_on_one_section_come_back_together(session):
+    service = StockService(session)
+    section_id = service.blank("1145A").section_id
+    found = service.blanks.on_section(section_id)
+    assert [row.part_number for row in found] == ["1145A", "RA4"]
+
+
+def test_the_orders_from_one_supplier_come_back_together(session):
+    service = StockService(session)
+    service.place_order("PO-9001", "lockwood supply", WHEN, [("1145A", 10)])
+    service.place_order("PO-9002", "brass and co", WHEN, [("RA4", 10)])
+    found = service.orders.from_supplier("lockwood supply")
+    assert [row.number for row in found] == ["PO-9001"]
+
+
+def test_a_scrapping_carries_its_reason_onto_the_line(session):
+    service = stocked(session)
+    line = service.scrap("1145A", 1, LATER, "the milling was out")
+    assert line.note == "the milling was out"
+
+
+def test_a_receipt_against_an_order_carries_the_order_number(session):
+    service = StockService(session)
+    service.place_order("PO-9001", "lockwood supply", WHEN, [("1145A", 10)])
+    service.book_in("PO-9001", "1145A", 10, LATER)
+    assert [line.reference for line in service.movements("1145A")] == ["PO-9001"]
