@@ -18,6 +18,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 
 from hasplib.control.deposits import DepositRates
+from hasplib.control.escrow import BoxPolicy
 from hasplib.control.notices import NoticePolicy
 from hasplib.errors import InputError
 from hasplib.rekey.costing import RateCard
@@ -36,6 +37,7 @@ class ShopSettings:
     notices: NoticePolicy = field(default_factory=NoticePolicy)
     scope: ScopePolicy = field(default_factory=ScopePolicy)
     rates: RateCard = field(default_factory=RateCard)
+    boxes: BoxPolicy = field(default_factory=BoxPolicy)
     quarantine_years: int = 7
     progression_step: int = 2
 
@@ -60,6 +62,8 @@ class ShopSettings:
             f"notices: reminder at {self.notices.reminder_days} days, "
             f"write off at {self.notices.write_off_days}",
             f"rekey: cap {self.scope.cylinder_cap}, strict repin {self.scope.recut_all_on_repin}",
+            f"boxes: no wider than level {self.boxes.lowest_level}, "
+            f"checked every {self.boxes.check_days} days",
             f"quarantine: {self.quarantine_years} years",
             f"progression: {self.progression_step} steps",
         )
@@ -127,6 +131,11 @@ def from_mapping(source: Mapping[str, str]) -> ShopSettings:
                 source, "LABOUR_CENTS_HOUR", DEFAULTS.rates.labour_cents_per_hour
             ),
             blank_cents=_whole(source, "BLANK_CENTS", DEFAULTS.rates.blank_cents),
+        ),
+        boxes=BoxPolicy(
+            lowest_level=_whole(source, "BOX_LOWEST_LEVEL", DEFAULTS.boxes.lowest_level),
+            check_days=_whole(source, "BOX_CHECK_DAYS", DEFAULTS.boxes.check_days),
+            reseal_days=_whole(source, "BOX_RESEAL_DAYS", DEFAULTS.boxes.reseal_days),
         ),
         quarantine_years=_whole(source, "QUARANTINE_YEARS", DEFAULTS.quarantine_years),
         progression_step=_whole(source, "PROGRESSION_STEP", DEFAULTS.progression_step),

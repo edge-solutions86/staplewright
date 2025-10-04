@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from hasplib.api.boxes import build_router as boxes_router
 from hasplib.api.doors import build_router as doors_router
 from hasplib.api.incidents import build_router as incidents_router
 from hasplib.api.keys import build_router as keys_router
@@ -22,4 +23,5 @@ def register_routes(app: FastAPI, shop: object) -> FastAPI:
     app.include_router(reports_router(shop))
     app.include_router(pinning_router(shop))
     app.include_router(stock_router(shop))
+    app.include_router(boxes_router(shop))
     return app

@@ -94,7 +94,7 @@ def test_a_negative_deposit_rate_is_refused():
 
 def test_the_description_names_every_group():
     lines = DEFAULTS.describe()
-    assert len(lines) == 6
+    assert len(lines) == 7
     assert any(line.startswith("deposits:") for line in lines)
     assert any(line.startswith("quarantine:") for line in lines)
 
@@ -109,3 +109,29 @@ def test_an_environment_with_nothing_set_gives_the_defaults(monkeypatch):
         assert name
     monkeypatch.delenv(PREFIX + "MAX_RUN", raising=False)
     assert from_env().cutting.max_run == DEFAULTS.cutting.max_run
+
+
+def test_the_box_policy_comes_off_the_environment():
+    settings = from_mapping(
+        {
+            "HASPLIB_BOX_LOWEST_LEVEL": "1",
+            "HASPLIB_BOX_CHECK_DAYS": "90",
+            "HASPLIB_BOX_RESEAL_DAYS": "0",
+        }
+    )
+    assert settings.boxes.lowest_level == 1
+    assert settings.boxes.check_days == 90
+    assert settings.boxes.reseal_days == 0
+
+
+def test_a_box_policy_nobody_set_keeps_its_default():
+    assert from_mapping({}).boxes.check_days == 180
+
+
+def test_a_box_policy_that_makes_no_sense_is_refused():
+    with pytest.raises(InputError):
+        from_mapping({"HASPLIB_BOX_LOWEST_LEVEL": "0"})
+
+
+def test_the_description_says_where_the_boxes_stand():
+    assert any(line.startswith("boxes:") for line in DEFAULTS.describe())
