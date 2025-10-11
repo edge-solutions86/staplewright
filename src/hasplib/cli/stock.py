@@ -15,7 +15,7 @@ from datetime import date
 
 import click
 
-from hasplib.cli.common import as_day, day_option
+from hasplib.cli.common import as_day, day_option, echo_lines, working
 from hasplib.reports.stock import (
     movement_log,
     outstanding_orders,
@@ -43,8 +43,7 @@ def stock() -> None:
 @click.pass_obj
 def show(shop, part) -> None:
     """What one part number stands at, both ways of counting it."""
-    with shop.session() as session:
-        service = StockService(session)
+    with working(shop, StockService) as service:
         row = service.blank(part)
         click.echo(f"{row.part_number} {row.manufacturer} {row.chambers} chamber")
         click.echo(f"drawer {row.stock}, ledger {service.ledger_total(part)}")
@@ -60,8 +59,7 @@ def show(shop, part) -> None:
 @click.pass_obj
 def receive(shop, part, quantity, reference, when) -> None:
     """Book brass into the drawer."""
-    with shop.session() as session:
-        service = StockService(session)
+    with working(shop, StockService) as service:
         service.receive(part, quantity, as_day(when), reference)
         click.echo(f"{part} now {service.on_hand(part)}")
 
@@ -74,8 +72,7 @@ def receive(shop, part, quantity, reference, when) -> None:
 @click.pass_obj
 def cut(shop, part, quantity, reference, when) -> None:
     """Take brass out to cut it."""
-    with shop.session() as session:
-        service = StockService(session)
+    with working(shop, StockService) as service:
         service.cut(part, quantity, as_day(when), reference)
         click.echo(f"{part} now {service.on_hand(part)}")
 
@@ -88,8 +85,7 @@ def cut(shop, part, quantity, reference, when) -> None:
 @click.pass_obj
 def scrap(shop, part, reason, quantity, when) -> None:
     """Write brass off, with the reason on the line."""
-    with shop.session() as session:
-        service = StockService(session)
+    with working(shop, StockService) as service:
         service.scrap(part, quantity, as_day(when), reason)
         click.echo(f"{part} now {service.on_hand(part)}")
 
@@ -112,8 +108,7 @@ def count(shop, part, counted, when) -> None:
 def log(shop, part) -> None:
     """Every movement of one part, oldest first."""
     with shop.session() as session:
-        for line in movement_log(StockService(session).movements(part)):
-            click.echo(line)
+        echo_lines(movement_log(StockService(session).movements(part)))
 
 
 @stock.command("reconcile")
@@ -126,11 +121,9 @@ def reconcile_part(shop, part, since, until) -> None:
     today = date.today()
     opened = since.date() if since is not None else date(today.year, 1, 1)
     closed = until.date() if until is not None else today
-    with shop.session() as session:
-        service = StockService(session)
+    with working(shop, StockService) as service:
         found = reconcile(service.blank(part), service.movements(part), opened, closed)
-        for line in reconciliation_sheet(found):
-            click.echo(line)
+        echo_lines(reconciliation_sheet(found))
 
 
 @stock.command("reorder")
@@ -138,8 +131,7 @@ def reconcile_part(shop, part, since, until) -> None:
 def reorder(shop) -> None:
     """What to put on the next order."""
     with shop.session() as session:
-        for line in reorder_sheet(StockService(session).blanks.all()):
-            click.echo(line)
+        echo_lines(reorder_sheet(StockService(session).blanks.all()))
 
 
 @stock.command("restricted")
@@ -147,8 +139,7 @@ def reorder(shop) -> None:
 def restricted(shop) -> None:
     """How much restricted brass is in the building."""
     with shop.session() as session:
-        for line in restricted_position(StockService(session).blanks.all()):
-            click.echo(line)
+        echo_lines(restricted_position(StockService(session).blanks.all()))
 
 
 @stock.command("orders")
@@ -156,8 +147,7 @@ def restricted(shop) -> None:
 def orders(shop) -> None:
     """What is still on order and what is left on it."""
     with shop.session() as session:
-        for line in outstanding_orders(StockService(session).orders.all()):
-            click.echo(line)
+        echo_lines(outstanding_orders(StockService(session).orders.all()))
 
 
 @stock.command("shrinkage")
@@ -167,14 +157,12 @@ def losses(shop, since) -> None:
     """Which parts do not account for themselves this year."""
     today = date.today()
     opened = since.date() if since is not None else date(today.year, 1, 1)
-    with shop.session() as session:
-        service = StockService(session)
+    with working(shop, StockService) as service:
         found = [
             reconcile(row, service.movements(row.part_number), opened, today)
             for row in service.blanks.all()
         ]
-        for line in shrinkage(found):
-            click.echo(line)
+        echo_lines(shrinkage(found))
 
 
 @stock.command("report")
@@ -184,11 +172,9 @@ def report(shop, since) -> None:
     """The whole pack, in the order somebody signs it."""
     today = date.today()
     opened = since.date() if since is not None else date(today.year, 1, 1)
-    with shop.session() as session:
-        service = StockService(session)
+    with working(shop, StockService) as service:
         blanks = list(service.blanks.all())
         found = [
             reconcile(row, service.movements(row.part_number), opened, today) for row in blanks
         ]
-        for line in stock_report(blanks, found, service.orders.all(), opened, today):
-            click.echo(line)
+        echo_lines(stock_report(blanks, found, service.orders.all(), opened, today))

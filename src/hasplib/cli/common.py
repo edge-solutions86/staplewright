@@ -12,7 +12,8 @@ So the options live here and the groups import them. The names are fixed:
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
 from datetime import date, datetime
 from typing import Any
 
@@ -62,3 +63,22 @@ def as_moment(moment: datetime | None) -> datetime:
 def as_given_day(day: datetime | None, otherwise: date) -> date:
     """A --on value, or a day the caller already knows."""
     return day.date() if day is not None else otherwise
+
+
+@contextmanager
+def working(shop: Any, kind: Callable[..., Any], *args: Any) -> Iterator[Any]:
+    """A session and a service built on it, which is what a command needs.
+
+    Every command in every group had opened a session and then built the same
+    service on the next line. Two of them had got the argument order wrong and
+    passed the settings where the session goes, which only showed up when
+    somebody ran the command.
+    """
+    with shop.session() as session:
+        yield kind(session, *args)
+
+
+def echo_lines(lines: Iterable[str]) -> None:
+    """Print a report. Reports come back as lines and always have."""
+    for line in lines:
+        click.echo(line)

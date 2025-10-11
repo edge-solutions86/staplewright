@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import click
 
-from hasplib.cli.common import as_day, day_option
+from hasplib.cli.common import as_day, day_option, echo_lines, working
 from hasplib.services.keyways import KeywayService
 from hasplib.spec.patents import PLANNING_YEARS
 
@@ -30,8 +30,7 @@ def keyways() -> None:
 @click.pass_obj
 def families(shop) -> None:
     """List the families the shop holds, with how many sections each has."""
-    with shop.session() as session:
-        service = KeywayService(session)
+    with working(shop, KeywayService) as service:
         found = service.families()
         if not found:
             click.echo("no keyway families stored")
@@ -70,8 +69,7 @@ def tree(shop, family) -> None:
 def patents(shop, family, when) -> None:
     """Where one family stands: what is gone, what is going, what is next."""
     with shop.session() as session:
-        for line in KeywayService(session).report(family, as_day(when)):
-            click.echo(line)
+        echo_lines(KeywayService(session).report(family, as_day(when)))
 
 
 @keyways.command("risk")
@@ -80,8 +78,7 @@ def patents(shop, family, when) -> None:
 def risk(shop, when) -> None:
     """Sections the shop keys on that have already gone open."""
     with shop.session() as session:
-        for line in KeywayService(session).risk_report(as_day(when)):
-            click.echo(line)
+        echo_lines(KeywayService(session).risk_report(as_day(when)))
 
 
 @keyways.command("check")
@@ -99,8 +96,7 @@ def risk(shop, when) -> None:
 def check(shop, family, section, years, when) -> None:
     """Say whether a new system may be laid down on a section."""
     today = as_day(when)
-    with shop.session() as session:
-        service = KeywayService(session)
+    with working(shop, KeywayService) as service:
         service.check_section(family, section, today, within_years=years)
         click.echo(f"{section} is good for {years} years")
 

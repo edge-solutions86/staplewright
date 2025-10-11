@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import click
 
+from hasplib.cli.common import echo_lines, working
 from hasplib.keys.bitting import Bitting
 from hasplib.keys.symbol import KeySymbol
 from hasplib.reports.schedule import (
@@ -34,8 +35,7 @@ def systems() -> None:
 @click.pass_obj
 def open_system(shop, name: str, chart_id: int, family: str, section: str, step: int) -> None:
     """Open a keying system on a chart and a keyway family."""
-    with shop.session() as session:
-        service = SystemService(session, shop.settings.cutting)
+    with working(shop, SystemService, shop.settings.cutting) as service:
         row = service.open_system(name, chart_id, family, section, step)
         click.echo(f"{row.name} opened on chart {row.chart_id}, step {row.progression_step}")
 
@@ -47,8 +47,7 @@ def open_system(shop, name: str, chart_id: int, family: str, section: str, step:
 @click.pass_obj
 def draw(shop, name: str, symbol: str, section: str | None) -> None:
     """Put a symbol on the schedule without cutting it."""
-    with shop.session() as session:
-        service = SystemService(session, shop.settings.cutting)
+    with working(shop, SystemService, shop.settings.cutting) as service:
         row = service.draw(name, KeySymbol.parse(symbol), section)
         click.echo(f"{row.symbol.render()} drawn on {row.section}")
 
@@ -60,8 +59,7 @@ def draw(shop, name: str, symbol: str, section: str | None) -> None:
 @click.pass_obj
 def cut(shop, name: str, symbol: str, bitting: str) -> None:
     """Cut a symbol to a bitting."""
-    with shop.session() as session:
-        service = SystemService(session, shop.settings.cutting)
+    with working(shop, SystemService, shop.settings.cutting) as service:
         service.cut(name, KeySymbol.parse(symbol), Bitting.parse(bitting))
         click.echo(f"{symbol} cut {bitting}")
 
@@ -72,8 +70,7 @@ def cut(shop, name: str, symbol: str, bitting: str) -> None:
 @click.pass_obj
 def uncut(shop, name: str, symbol: str) -> None:
     """Take the cuts off a symbol and leave it on the schedule."""
-    with shop.session() as session:
-        service = SystemService(session, shop.settings.cutting)
+    with working(shop, SystemService, shop.settings.cutting) as service:
         service.uncut(name, KeySymbol.parse(symbol))
         click.echo(f"{symbol} back on the open list")
 
@@ -85,8 +82,7 @@ def uncut(shop, name: str, symbol: str) -> None:
 @click.pass_obj
 def schedule(shop, name: str, bittings: bool, tree: bool) -> None:
     """Print the keying schedule."""
-    with shop.session() as session:
-        service = SystemService(session, shop.settings.cutting)
+    with working(shop, SystemService, shop.settings.cutting) as service:
         drawn = service.schedule(name)
         if bittings:
             lines = bitting_list(drawn)
@@ -94,8 +90,7 @@ def schedule(shop, name: str, bittings: bool, tree: bool) -> None:
             lines = tree_report(drawn)
         else:
             lines = schedule_report(drawn, name)
-        for line in lines:
-            click.echo(line)
+        echo_lines(lines)
 
 
 @systems.command("open-symbols")
@@ -103,10 +98,8 @@ def schedule(shop, name: str, bittings: bool, tree: bool) -> None:
 @click.pass_obj
 def open_symbols(shop, name: str) -> None:
     """What is drawn and not cut."""
-    with shop.session() as session:
-        service = SystemService(session, shop.settings.cutting)
-        for line in open_symbols_report(service.schedule(name)):
-            click.echo(line)
+    with working(shop, SystemService, shop.settings.cutting) as service:
+        echo_lines(open_symbols_report(service.schedule(name)))
 
 
 @systems.command("review")
@@ -114,8 +107,7 @@ def open_symbols(shop, name: str) -> None:
 @click.pass_obj
 def review(shop, name: str) -> None:
     """Everything wrong with a system, worst first."""
-    with shop.session() as session:
-        service = SystemService(session, shop.settings.cutting)
+    with working(shop, SystemService, shop.settings.cutting) as service:
         findings = service.review(name)
         if not findings:
             click.echo("nothing to report")
@@ -129,7 +121,6 @@ def review(shop, name: str) -> None:
 @click.pass_obj
 def archive(shop, name: str) -> None:
     """Close a system so nothing else gets drawn on it."""
-    with shop.session() as session:
-        service = SystemService(session, shop.settings.cutting)
+    with working(shop, SystemService, shop.settings.cutting) as service:
         service.archive(name)
         click.echo(f"{name} archived")

@@ -13,7 +13,7 @@ import click
 from hasplib.campus.keyed_alike import KeyedAlikeSet
 from hasplib.campus.lockouts import Identification
 from hasplib.campus.survey import Condition, Deficiency
-from hasplib.cli.common import as_day, as_moment, day_option, moment_option
+from hasplib.cli.common import as_day, as_moment, day_option, moment_option, working
 from hasplib.control.review import Answer
 from hasplib.services.access import KeyedAlikeService, ReviewService
 from hasplib.services.facilities import LockoutService, SurveyService
@@ -169,8 +169,7 @@ def review_answer(shop, department, tag, answer, opened, day) -> None:
 @click.pass_obj
 def reviews(shop) -> None:
     """The reviews still waiting on a department."""
-    with shop.session() as session:
-        service = ReviewService(session)
+    with working(shop, ReviewService) as service:
         rows = service.open_reviews()
         if not rows:
             click.echo("nothing open")

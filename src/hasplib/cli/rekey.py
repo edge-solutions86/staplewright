@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import click
 
-from hasplib.cli.common import as_day, day_option
+from hasplib.cli.common import as_day, day_option, echo_lines, working
 from hasplib.persistence.loaders import load_coverage
 from hasplib.rekey.compromise import Cause
 from hasplib.rekey.costing import estimate
@@ -44,8 +44,7 @@ def series(shop) -> None:
 @click.pass_obj
 def report(shop, tag, cause, note, keep_cut, when) -> None:
     """Report a key missing and retire its cut."""
-    with shop.session() as session:
-        service = IncidentService(session, shop.settings.scope)
+    with working(shop, IncidentService, shop.settings.scope) as service:
         row = service.report(tag, Cause(cause), as_day(when), note, not keep_cut)
         click.echo(f"{row.number} logged, graded {row.severity}")
 
@@ -55,10 +54,8 @@ def report(shop, tag, cause, note, keep_cut, when) -> None:
 @click.pass_obj
 def assess(shop, number) -> None:
     """What one incident exposes, on one page."""
-    with shop.session() as session:
-        service = IncidentService(session, shop.settings.scope)
-        for line in incident_sheet(service.assessment(number)):
-            click.echo(line)
+    with working(shop, IncidentService, shop.settings.scope) as service:
+        echo_lines(incident_sheet(service.assessment(number)))
 
 
 @rekey.command("plan")
@@ -67,17 +64,14 @@ def assess(shop, number) -> None:
 @click.pass_obj
 def plan(shop, number, cost) -> None:
     """What the shop would do about it, and what that costs."""
-    with shop.session() as session:
-        service = IncidentService(session, shop.settings.scope)
+    with working(shop, IncidentService, shop.settings.scope) as service:
         decision = service.plan(number)
-        for line in scope_sheet(decision):
-            click.echo(line)
+        echo_lines(scope_sheet(decision))
         if cost:
             found = service.assessment(number)
-            coverage = load_coverage(session)
+            coverage = load_coverage(service.session)
             priced = estimate(decision, coverage, list(found.keys_to_recut), shop.settings.rates)
-            for line in cost_sheet(priced):
-                click.echo(line)
+            echo_lines(cost_sheet(priced))
 
 
 @rekey.command("book")
@@ -86,8 +80,7 @@ def plan(shop, number, cost) -> None:
 @click.pass_obj
 def book(shop, number, wanted) -> None:
     """Raise the work order off an incident."""
-    with shop.session() as session:
-        service = IncidentService(session, shop.settings.scope)
+    with working(shop, IncidentService, shop.settings.scope) as service:
         order = service.raise_order(number, wanted.date() if wanted else None)
         click.echo(f"{order.number} raised with {len(order.lines)} cylinders")
 
@@ -97,8 +90,7 @@ def book(shop, number, wanted) -> None:
 @click.pass_obj
 def packet(shop, number) -> None:
     """Print the sheets for one work order."""
-    with shop.session() as session:
-        service = IncidentService(session, shop.settings.scope)
+    with working(shop, IncidentService, shop.settings.scope) as service:
         row = service.orders.get(number)
         order = WorkOrder(
             number=row.number,
@@ -108,8 +100,7 @@ def packet(shop, number) -> None:
             ),
             technician=row.technician,
         )
-        for line in order_packet(order):
-            click.echo(line)
+        echo_lines(order_packet(order))
 
 
 @rekey.command("orders")
@@ -117,8 +108,7 @@ def packet(shop, number) -> None:
 @click.pass_obj
 def orders(shop, technician) -> None:
     """The open work orders."""
-    with shop.session() as session:
-        service = IncidentService(session, shop.settings.scope)
+    with working(shop, IncidentService, shop.settings.scope) as service:
         rows = (
             service.orders.for_technician(technician)
             if technician

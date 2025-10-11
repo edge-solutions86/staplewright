@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import click
 
-from hasplib.cli.common import as_day, day_option
+from hasplib.cli.common import as_day, day_option, echo_lines, working
 from hasplib.control.notices import NoticeLog, notices_due
 from hasplib.persistence.loaders import load_deposits, load_directory, load_ledger
 from hasplib.reports.control import (
@@ -48,8 +48,7 @@ def series(shop) -> None:
 @click.pass_obj
 def raise_request(shop, keyholder, symbol, building, reason, master, when) -> None:
     """Raise a request for one key."""
-    with shop.session() as session:
-        service = CounterService(session, shop.settings.deposits)
+    with working(shop, CounterService, shop.settings.deposits) as service:
         row = service.raise_request(keyholder, symbol, building, reason, as_day(when), master)
         click.echo(f"{row.number} raised for {keyholder}, {symbol}")
 
@@ -61,8 +60,7 @@ def raise_request(shop, keyholder, symbol, building, reason, master, when) -> No
 @click.pass_obj
 def approve(shop, number, signer, when) -> None:
     """Sign a request off."""
-    with shop.session() as session:
-        service = CounterService(session, shop.settings.deposits)
+    with working(shop, CounterService, shop.settings.deposits) as service:
         service.approve(number, signer, as_day(when))
         click.echo(f"{number} approved by {signer}")
 
@@ -75,8 +73,7 @@ def approve(shop, number, signer, when) -> None:
 @click.pass_obj
 def deny(shop, number, signer, reason, when) -> None:
     """Turn a request down, with a reason."""
-    with shop.session() as session:
-        service = CounterService(session, shop.settings.deposits)
+    with working(shop, CounterService, shop.settings.deposits) as service:
         service.deny(number, signer, as_day(when), reason)
         click.echo(f"{number} denied")
 
@@ -89,8 +86,7 @@ def deny(shop, number, signer, reason, when) -> None:
 @click.pass_obj
 def issue(shop, number, due, deposit, when) -> None:
     """Hand the key over and take the deposit."""
-    with shop.session() as session:
-        service = CounterService(session, shop.settings.deposits)
+    with working(shop, CounterService, shop.settings.deposits) as service:
         key = service.issue(number, as_day(when), due.date() if due else None, deposit)
         click.echo(f"tag {key.tag} issued to {key.keyholder}, deposit {key.deposit_cents}")
 
@@ -101,8 +97,7 @@ def issue(shop, number, due, deposit, when) -> None:
 @click.pass_obj
 def take_back(shop, tag, when) -> None:
     """A key comes back and the deposit goes with it."""
-    with shop.session() as session:
-        service = CounterService(session, shop.settings.deposits)
+    with working(shop, CounterService, shop.settings.deposits) as service:
         service.take_back(tag, as_day(when))
         click.echo(f"tag {tag} back")
 
@@ -114,8 +109,7 @@ def take_back(shop, tag, when) -> None:
 @click.pass_obj
 def report_lost(shop, tag, note, when) -> None:
     """A key is gone and the deposit stays here."""
-    with shop.session() as session:
-        service = CounterService(session, shop.settings.deposits)
+    with working(shop, CounterService, shop.settings.deposits) as service:
         service.report_lost(tag, as_day(when), note)
         click.echo(f"tag {tag} written off")
 
@@ -130,8 +124,7 @@ def statement(shop, keyholder, when) -> None:
         directory = load_directory(session)
         ledger = load_ledger(session)
         book = load_deposits(session)
-        for line in keyholder_statement(directory.person(keyholder), ledger, book, as_day(when)):
-            click.echo(line)
+        echo_lines(keyholder_statement(directory.person(keyholder), ledger, book, as_day(when)))
 
 
 @counter.command("deposits")
@@ -140,8 +133,7 @@ def statement(shop, keyholder, when) -> None:
 def deposits(shop, keyholder) -> None:
     """Every deposit line against one person."""
     with shop.session() as session:
-        for line in deposit_statement(load_deposits(session), keyholder):
-            click.echo(line)
+        echo_lines(deposit_statement(load_deposits(session), keyholder))
 
 
 @counter.command("department")
@@ -153,8 +145,7 @@ def department(shop, department, when) -> None:
     with shop.session() as session:
         directory = load_directory(session)
         ledger = load_ledger(session)
-        for line in department_summary(directory, ledger, department, as_day(when)):
-            click.echo(line)
+        echo_lines(department_summary(directory, ledger, department, as_day(when)))
 
 
 @counter.command("overdue")
@@ -163,8 +154,7 @@ def department(shop, department, when) -> None:
 def overdue(shop, when) -> None:
     """The chase list."""
     with shop.session() as session:
-        for line in overdue_report(load_ledger(session), as_day(when)):
-            click.echo(line)
+        echo_lines(overdue_report(load_ledger(session), as_day(when)))
 
 
 @counter.command("letters")
@@ -175,5 +165,4 @@ def letters(shop, when) -> None:
     with shop.session() as session:
         ledger = load_ledger(session)
         due = notices_due(ledger, as_day(when), NoticeLog(), shop.settings.notices)
-        for line in notice_run(due):
-            click.echo(line)
+        echo_lines(notice_run(due))
