@@ -117,6 +117,7 @@ from hasplib.cli.boxes import boxes  # noqa: E402
 from hasplib.cli.counter import counter  # noqa: E402
 from hasplib.cli.doors import doors  # noqa: E402
 from hasplib.cli.keyways import keyways  # noqa: E402
+from hasplib.cli.phasing import phasing  # noqa: E402
 from hasplib.cli.rekey import rekey  # noqa: E402
 from hasplib.cli.stock import stock  # noqa: E402
 from hasplib.cli.systems import systems  # noqa: E402
@@ -128,6 +129,7 @@ cli.add_command(doors)
 cli.add_command(keyways)
 cli.add_command(stock)
 cli.add_command(boxes)
+cli.add_command(phasing)
 
 
 def run(argv: list[str] | None = None) -> int:
