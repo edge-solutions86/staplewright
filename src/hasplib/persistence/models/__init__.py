@@ -48,6 +48,7 @@ from hasplib.persistence.models.stock import (
     PurchaseOrderRow,
     StockLineRow,
 )
+from hasplib.persistence.models.transfer import TransferRow
 
 __all__ = [
     "AccessGroupRow",
@@ -83,6 +84,7 @@ __all__ = [
     "SurveyRow",
     "StockLineRow",
     "SystemRow",
+    "TransferRow",
     "WorkOrderLineRow",
     "WorkOrderRow",
 ]
