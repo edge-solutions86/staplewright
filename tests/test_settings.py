@@ -94,7 +94,7 @@ def test_a_negative_deposit_rate_is_refused():
 
 def test_the_description_names_every_group():
     lines = DEFAULTS.describe()
-    assert len(lines) == 7
+    assert len(lines) == 8
     assert any(line.startswith("deposits:") for line in lines)
     assert any(line.startswith("quarantine:") for line in lines)
 
@@ -135,3 +135,22 @@ def test_a_box_policy_that_makes_no_sense_is_refused():
 
 def test_the_description_says_where_the_boxes_stand():
     assert any(line.startswith("boxes:") for line in DEFAULTS.describe())
+
+
+def test_the_handover_policy_comes_off_the_environment():
+    settings = from_mapping({"HASPLIB_CONFIRM_DAYS": "30", "HASPLIB_MASTER_HANDOVER": "yes"})
+    assert settings.transfers.confirm_days == 30
+    assert settings.transfers.allow_master_transfer is True
+
+
+def test_a_handover_policy_nobody_set_keeps_its_default():
+    assert from_mapping({}).transfers.confirm_days == 14
+
+
+def test_a_handover_window_of_nothing_is_refused():
+    with pytest.raises(InputError):
+        from_mapping({"HASPLIB_CONFIRM_DAYS": "0"})
+
+
+def test_the_description_says_how_long_a_claim_stands():
+    assert any(line.startswith("handovers:") for line in DEFAULTS.describe())

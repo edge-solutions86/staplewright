@@ -71,7 +71,7 @@ def test_health_says_up(client):
 def test_the_settings_can_be_read(client):
     found = client.get("/settings")
     assert found.status_code == 200
-    assert len(found.json()["settings"]) == 7
+    assert len(found.json()["settings"]) == 8
 
 
 def test_opening_a_system_gives_it_back(client):

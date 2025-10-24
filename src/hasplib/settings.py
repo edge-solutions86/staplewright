@@ -20,6 +20,7 @@ from dataclasses import dataclass, field, replace
 from hasplib.control.deposits import DepositRates
 from hasplib.control.escrow import BoxPolicy
 from hasplib.control.notices import NoticePolicy
+from hasplib.control.transfer import TransferPolicy
 from hasplib.errors import InputError
 from hasplib.rekey.costing import RateCard
 from hasplib.rekey.scope import ScopePolicy
@@ -38,6 +39,7 @@ class ShopSettings:
     scope: ScopePolicy = field(default_factory=ScopePolicy)
     rates: RateCard = field(default_factory=RateCard)
     boxes: BoxPolicy = field(default_factory=BoxPolicy)
+    transfers: TransferPolicy = field(default_factory=TransferPolicy)
     quarantine_years: int = 7
     progression_step: int = 2
 
@@ -64,6 +66,7 @@ class ShopSettings:
             f"rekey: cap {self.scope.cylinder_cap}, strict repin {self.scope.recut_all_on_repin}",
             f"boxes: no wider than level {self.boxes.lowest_level}, "
             f"checked every {self.boxes.check_days} days",
+            f"handovers: confirmed inside {self.transfers.confirm_days} days",
             f"quarantine: {self.quarantine_years} years",
             f"progression: {self.progression_step} steps",
         )
@@ -136,6 +139,12 @@ def from_mapping(source: Mapping[str, str]) -> ShopSettings:
             lowest_level=_whole(source, "BOX_LOWEST_LEVEL", DEFAULTS.boxes.lowest_level),
             check_days=_whole(source, "BOX_CHECK_DAYS", DEFAULTS.boxes.check_days),
             reseal_days=_whole(source, "BOX_RESEAL_DAYS", DEFAULTS.boxes.reseal_days),
+        ),
+        transfers=TransferPolicy(
+            confirm_days=_whole(source, "CONFIRM_DAYS", DEFAULTS.transfers.confirm_days),
+            allow_master_transfer=_flag(
+                source, "MASTER_HANDOVER", DEFAULTS.transfers.allow_master_transfer
+            ),
         ),
         quarantine_years=_whole(source, "QUARANTINE_YEARS", DEFAULTS.quarantine_years),
         progression_step=_whole(source, "PROGRESSION_STEP", DEFAULTS.progression_step),

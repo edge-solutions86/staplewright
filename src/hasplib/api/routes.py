@@ -12,6 +12,7 @@ from hasplib.api.pinning import build_router as pinning_router
 from hasplib.api.reports import build_router as reports_router
 from hasplib.api.stock import build_router as stock_router
 from hasplib.api.systems import build_router as systems_router
+from hasplib.api.transfer import build_router as transfer_router
 
 
 def register_routes(app: FastAPI, shop: object) -> FastAPI:
@@ -24,4 +25,5 @@ def register_routes(app: FastAPI, shop: object) -> FastAPI:
     app.include_router(pinning_router(shop))
     app.include_router(stock_router(shop))
     app.include_router(boxes_router(shop))
+    app.include_router(transfer_router(shop))
     return app

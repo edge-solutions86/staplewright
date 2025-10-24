@@ -29,6 +29,7 @@ from hasplib.persistence.models.campus import CylinderRow, OpeningRow
 from hasplib.persistence.models.control import IssuedKeyRow, KeyholderRow
 from hasplib.persistence.models.keying import GroupRow, ScheduleEntryRow, SystemRow
 from hasplib.persistence.models.rekey import RetiredBittingRow
+from hasplib.persistence.models.transfer import TransferRow
 
 
 class Severity(IntEnum):
@@ -202,13 +203,58 @@ def openings_with_no_cylinder(session: Session, today: date) -> list[Finding]:
     ]
 
 
+def keys_that_wandered(session: Session, today: date) -> list[Finding]:
+    """Keys whose ledger holder is not the person who has them.
+
+    Every line here is a key the shop would have asked the wrong person to
+    produce, which is the single most embarrassing thing an audit turns up.
+    """
+    from hasplib.persistence.mappers.transfer import strays
+
+    keys = session.execute(select(IssuedKeyRow).where(IssuedKeyRow.state == "out")).scalars().all()
+    rows = session.execute(select(TransferRow)).scalars().all()
+    if not rows:
+        return []
+    return [
+        Finding(
+            "keys that changed hands",
+            Severity.WARNING,
+            tag,
+            f"ledger says {ledger}, actually with {now}",
+        )
+        for tag, ledger, now in strays(keys, rows, today)
+    ]
+
+
+def handovers_nobody_confirmed(session: Session, today: date) -> list[Finding]:
+    """Claims sitting open past the window, which means a key is nowhere."""
+    from hasplib.control.transfer import TransferPolicy
+    from hasplib.persistence.mappers.transfer import book_from_rows
+
+    rows = session.execute(select(TransferRow)).scalars().all()
+    if not rows:
+        return []
+    book = book_from_rows(rows, TransferPolicy())
+    return [
+        Finding(
+            "handovers nobody confirmed",
+            Severity.FAULT,
+            item.number,
+            f"{item.tag} claimed {item.claimed_on.isoformat()}, nobody signed",
+        )
+        for item in book.late(today)
+    ]
+
+
 Check = Callable[[Session, date], list[Finding]]
 
 CHECKS: tuple[Check, ...] = (
     unkeyed_openings,
     keys_held_by_lapsed_people,
     quarantined_cuts_in_use,
+    handovers_nobody_confirmed,
     groups_with_no_cylinders,
+    keys_that_wandered,
     openings_with_no_cylinder,
     uninstalled_cylinders,
     uncut_symbols,
