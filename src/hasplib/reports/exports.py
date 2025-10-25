@@ -1,27 +1,38 @@
-"""Comma separated files, because that is what the facilities system reads.
+"""Exports, in whatever the receiving system happens to eat this year.
 
-Not a serialisation format and not an interchange format. A csv here is one
-table, flat, with a header row naming columns that a person picked, and it
-exists because the campus space management system imports csv and nothing
-else. Every export is a list of rows rather than a written file, so a caller
-can send it to a response, a file, or a test without any of them caring.
+Not a serialisation format and not an interchange format. An export here is
+one table, flat, with a header row naming columns that a person picked,
+because the campus space management system imports csv and nothing else.
+Every export hands back rows rather than writing a file, so a caller can send
+them to a response, a file, or a test without any of them caring.
 
 Dates are iso and money is in cents, both of which the receiving system reads
 without asking. Nothing is quoted by hand: the csv module knows more about
 commas in a room description than anybody writing this does.
+
+A table used to be three things sitting next to each other, a header tuple, a
+rows function, and a one line wrapper that stapled them together into csv.
+That was fine until the finance system asked for json, at which point every
+table needed a second wrapper and the two started disagreeing about which
+columns were in it. So a table is one object now, and a format is something
+you ask it for.
 """
 
 from __future__ import annotations
 
 import csv
 import io
-from collections.abc import Iterable, Sequence
+import json
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
 from datetime import date
+from typing import Any
 
 from hasplib.campus.hardware import Cylinder
 from hasplib.campus.openings import Opening
 from hasplib.control.deposits import DepositBook
 from hasplib.control.issue import IssuedKey
+from hasplib.errors import NotFoundError
 from hasplib.keys.schedule import ScheduleEntry
 
 Row = Sequence[object]
@@ -37,7 +48,37 @@ def to_text(header: Sequence[str], rows: Iterable[Row]) -> str:
     return out.getvalue()
 
 
-SCHEDULE_HEADER = ("symbol", "level", "section", "bitting", "note")
+def to_records(header: Sequence[str], rows: Iterable[Row]) -> list[dict[str, Any]]:
+    """The same rows as dictionaries, for anything that speaks json."""
+    return [dict(zip(header, row, strict=True)) for row in rows]
+
+
+def to_json(header: Sequence[str], rows: Iterable[Row]) -> str:
+    return json.dumps(to_records(header, rows), indent=2, sort_keys=False)
+
+
+@dataclass(frozen=True)
+class Table:
+    """One export: what it is called, its columns, and how to build its rows."""
+
+    name: str
+    header: tuple[str, ...]
+    build: Callable[..., list[Row]]
+
+    def rows(self, *args: Any, **kwargs: Any) -> list[Row]:
+        return self.build(*args, **kwargs)
+
+    def csv(self, *args: Any, **kwargs: Any) -> str:
+        return to_text(self.header, self.rows(*args, **kwargs))
+
+    def json(self, *args: Any, **kwargs: Any) -> str:
+        return to_json(self.header, self.rows(*args, **kwargs))
+
+    def records(self, *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        return to_records(self.header, self.rows(*args, **kwargs))
+
+    def filename(self, on: date, suffix: str = "csv") -> str:
+        return f"hasplib-{self.name}-{on.isoformat()}.{suffix}"
 
 
 def schedule_rows(entries: Iterable[ScheduleEntry]) -> list[Row]:
@@ -51,13 +92,6 @@ def schedule_rows(entries: Iterable[ScheduleEntry]) -> list[Row]:
         )
         for entry in entries
     ]
-
-
-def schedule_csv(entries: Iterable[ScheduleEntry]) -> str:
-    return to_text(SCHEDULE_HEADER, schedule_rows(entries))
-
-
-OPENING_HEADER = ("number", "building", "floor", "room", "function", "exterior", "description")
 
 
 def opening_rows(openings: Iterable[Opening]) -> list[Row]:
@@ -75,13 +109,6 @@ def opening_rows(openings: Iterable[Opening]) -> list[Row]:
     ]
 
 
-def openings_csv(openings: Iterable[Opening]) -> str:
-    return to_text(OPENING_HEADER, opening_rows(openings))
-
-
-CYLINDER_HEADER = ("serial", "format", "section", "chambers", "opening", "position", "group")
-
-
 def cylinder_rows(cylinders: Iterable[Cylinder]) -> list[Row]:
     return [
         (
@@ -95,13 +122,6 @@ def cylinder_rows(cylinders: Iterable[Cylinder]) -> list[Row]:
         )
         for cylinder in cylinders
     ]
-
-
-def cylinders_csv(cylinders: Iterable[Cylinder]) -> str:
-    return to_text(CYLINDER_HEADER, cylinder_rows(cylinders))
-
-
-HOLDING_HEADER = ("tag", "symbol", "keyholder", "issued", "due", "deposit_cents", "state")
 
 
 def holding_rows(keys: Iterable[IssuedKey], book: DepositBook | None = None) -> list[Row]:
@@ -122,10 +142,42 @@ def holding_rows(keys: Iterable[IssuedKey], book: DepositBook | None = None) -> 
     return rows
 
 
-def holdings_csv(keys: Iterable[IssuedKey], book: DepositBook | None = None) -> str:
-    return to_text(HOLDING_HEADER, holding_rows(keys, book))
+SCHEDULE = Table(
+    "schedule",
+    ("symbol", "level", "section", "bitting", "note"),
+    schedule_rows,
+)
+OPENINGS = Table(
+    "openings",
+    ("number", "building", "floor", "room", "function", "exterior", "description"),
+    opening_rows,
+)
+CYLINDERS = Table(
+    "cylinders",
+    ("serial", "format", "section", "chambers", "opening", "position", "group"),
+    cylinder_rows,
+)
+HOLDINGS = Table(
+    "holdings",
+    ("tag", "symbol", "keyholder", "issued", "due", "deposit_cents", "state"),
+    holding_rows,
+)
+
+TABLES = {table.name: table for table in (SCHEDULE, OPENINGS, CYLINDERS, HOLDINGS)}
 
 
-def filename(kind: str, on: date) -> str:
+def table(name: str) -> Table:
+    """The table somebody asked for by name, which is how the cli reaches one."""
+    found = TABLES.get(name)
+    if found is None:
+        raise NotFoundError("nothing is exported under that name", table=name)
+    return found
+
+
+def table_names() -> tuple[str, ...]:
+    return tuple(sorted(TABLES))
+
+
+def filename(kind: str, on: date, suffix: str = "csv") -> str:
     """What the shop calls the file when it lands in the shared folder."""
-    return f"hasplib-{kind}-{on.isoformat()}.csv"
+    return f"hasplib-{kind}-{on.isoformat()}.{suffix}"

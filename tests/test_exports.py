@@ -1,18 +1,24 @@
 from datetime import date
 
+import pytest
+
 from campus import a_campus
 from hasplib.control.deposits import DepositBook
 from hasplib.control.issue import KeyLedger
+from hasplib.errors import NotFoundError
 from hasplib.keys.bitting import Bitting
 from hasplib.keys.symbol import KeySymbol
 from hasplib.reports.exports import (
-    cylinders_csv,
+    CYLINDERS,
+    HOLDINGS,
+    OPENINGS,
+    SCHEDULE,
     filename,
     holding_rows,
-    holdings_csv,
-    openings_csv,
-    schedule_csv,
     schedule_rows,
+    table,
+    table_names,
+    to_records,
     to_text,
 )
 from keyed import a_register
@@ -73,39 +79,39 @@ def test_the_schedule_rows_carry_the_level_and_the_cut():
 
 def test_the_schedule_document_has_a_line_a_symbol():
     schedule = a_cut_schedule()
-    found = lines(schedule_csv(schedule.entries()))
+    found = lines(SCHEDULE.csv(schedule.entries()))
     assert found[0].startswith("symbol,")
     assert len(found) == len(schedule) + 1
 
 
 def test_the_openings_document_says_yes_and_no_for_exterior():
-    found = lines(openings_csv(a_campus()))
+    found = lines(OPENINGS.csv(a_campus()))
     outside = [line for line in found if line.startswith("MOO-101")]
     assert outside[0].endswith("north door")
     assert ",yes," in outside[0]
 
 
 def test_an_interior_door_says_no():
-    found = lines(openings_csv(a_campus()))
+    found = lines(OPENINGS.csv(a_campus()))
     inside = [line for line in found if line.startswith("MOO-214")]
     assert ",no," in inside[0]
 
 
 def test_the_cylinder_document_leaves_a_shelved_cylinder_blank():
-    found = lines(cylinders_csv(a_register()))
+    found = lines(CYLINDERS.csv(a_register()))
     shelved = [line for line in found if line.startswith("C-1099")]
     assert shelved[0].endswith(",,,")
 
 
 def test_an_installed_cylinder_names_its_door():
-    found = lines(cylinders_csv(a_register()))
+    found = lines(CYLINDERS.csv(a_register()))
     installed = [line for line in found if line.startswith("C-1001")]
     assert "MOO-214" in installed[0]
     assert "lockset" in installed[0]
 
 
 def test_the_holdings_document_carries_the_dates():
-    found = lines(holdings_csv(a_ledger().out()))
+    found = lines(HOLDINGS.csv(a_ledger().out()))
     assert TODAY.isoformat() in found[1]
     assert "2025-05-01" in found[2]
 
@@ -131,3 +137,63 @@ def test_without_a_book_the_deposit_is_what_the_key_says():
 
 def test_the_filename_carries_the_kind_and_the_day():
     assert filename("holdings", date(2025, 4, 8)) == "hasplib-holdings-2025-04-08.csv"
+
+
+def test_a_table_knows_its_own_columns():
+    assert SCHEDULE.header[0] == "symbol"
+    assert OPENINGS.name == "openings"
+
+
+def test_a_table_hands_back_records_for_json():
+    found = SCHEDULE.records(a_cut_schedule().entries())
+    assert found[0]["symbol"] == "GGM"
+    assert set(found[0]) == set(SCHEDULE.header)
+
+
+def test_a_table_writes_json_a_person_can_read():
+    import json
+
+    found = json.loads(OPENINGS.json(a_campus()))
+    assert found[0]["building"] == "HEI"
+
+
+def test_a_missing_value_stays_null_in_json():
+    import json
+
+    from systems import empty_schedule
+
+    schedule = empty_schedule()
+    schedule.add(KeySymbol.parse("A"), section="LA")
+    found = json.loads(SCHEDULE.json(schedule.entries()))
+    assert found[-1]["bitting"] is None
+
+
+def test_a_missing_value_is_empty_in_csv():
+    from systems import empty_schedule
+
+    schedule = empty_schedule()
+    schedule.add(KeySymbol.parse("A"), section="LA")
+    assert lines(SCHEDULE.csv(schedule.entries()))[-1].endswith(",,")
+
+
+def test_a_table_names_its_own_file():
+    assert CYLINDERS.filename(date(2025, 4, 8)) == "hasplib-cylinders-2025-04-08.csv"
+    assert CYLINDERS.filename(date(2025, 4, 8), "json").endswith(".json")
+
+
+def test_the_tables_can_be_looked_up_by_name():
+    assert table("holdings") is HOLDINGS
+
+
+def test_a_table_nobody_exports_is_a_404():
+    with pytest.raises(NotFoundError):
+        table("payroll")
+
+
+def test_the_table_names_come_back_sorted():
+    assert table_names() == ("cylinders", "holdings", "openings", "schedule")
+
+
+def test_a_row_with_the_wrong_width_is_caught():
+    with pytest.raises(ValueError):
+        to_records(("a", "b"), [("only one",)])
