@@ -80,6 +80,24 @@ def settings(shop: Shop) -> None:
         click.echo(line)
 
 
+@cli.command("demo")
+@click.option("--on", "when", type=click.DateTime(["%Y-%m-%d"]), default=None)
+@click.pass_obj
+def demo(shop: Shop, when) -> None:
+    """Build the tables and fill them with a worked example campus."""
+    from datetime import date
+
+    from hasplib.persistence.seed import seed, summary
+
+    create_schema(shop.engine)
+    day = when.date() if when is not None else date.today()
+    with shop.session() as session:
+        seed(session, day)
+    click.echo(f"demo campus written to {shop.url}")
+    for line in summary():
+        click.echo(f"  {line}")
+
+
 @cli.command("check")
 @click.option("--on", "when", type=click.DateTime(["%Y-%m-%d"]), default=None)
 @click.option("--quiet", is_flag=True, help="print nothing, just set the exit code")
