@@ -16,19 +16,10 @@ from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
 
-from hasplib.api.wiring import PLAIN, page, session_dependency
+from hasplib.api.wiring import PLAIN, page, service_dependency
 from hasplib.control.notices import NoticeLog, notices_due
-from hasplib.persistence.loaders import (
-    load_coverage,
-    load_deposits,
-    load_directory,
-    load_ledger,
-    load_openings,
-    load_schedule,
-)
-from hasplib.persistence.repositories import SystemRepository
+from hasplib.persistence.workspace import Workspace
 from hasplib.reports.control import (
     department_summary,
     deposit_statement,
@@ -43,22 +34,18 @@ from hasplib.reports.statistics import campus_numbers, exposure, keys_by_buildin
 def build_router(shop: Any) -> APIRouter:
     router = APIRouter(prefix="/reports", tags=["reports"])
 
-    session = session_dependency(shop)
+    space = service_dependency(
+        Workspace, shop, shop.settings.cutting, shop.settings.quarantine_years
+    )
 
     @router.get("/systems/{name}/schedule")
     def schedule(
         name: str,
         plain: bool = PLAIN,
         shape: str = Query(default="schedule", pattern="^(schedule|bittings|tree)$"),
-        db: Session = Depends(session),
+        work: Workspace = Depends(space),
     ) -> Any:
-        systems = SystemRepository(db)
-        row = systems.by_name(name)
-        if row is None:
-            from hasplib.errors import NotFoundError
-
-            raise NotFoundError("no such keying system", system=name)
-        drawn = load_schedule(db, row, shop.settings.cutting)
+        drawn = work.schedule(name)
         if shape == "bittings":
             lines = bitting_list(drawn)
         elif shape == "tree":
@@ -72,51 +59,49 @@ def build_router(shop: Any) -> APIRouter:
         identifier: str,
         on: date | None = None,
         plain: bool = PLAIN,
-        db: Session = Depends(session),
+        work: Workspace = Depends(space),
     ) -> Any:
-        directory = load_directory(db)
+        directory = work.directory()
         lines = keyholder_statement(
-            directory.person(identifier), load_ledger(db), load_deposits(db), on
+            directory.person(identifier), work.ledger(), work.deposits(), on
         )
         return page(lines, plain)
 
     @router.get("/keyholders/{identifier}/deposits")
-    def deposits(identifier: str, plain: bool = PLAIN, db: Session = Depends(session)) -> Any:
-        return page(deposit_statement(load_deposits(db), identifier), plain)
+    def deposits(identifier: str, plain: bool = PLAIN, work: Workspace = Depends(space)) -> Any:
+        return page(deposit_statement(work.deposits(), identifier), plain)
 
     @router.get("/departments/{department}")
     def department(
         department: str,
         on: date,
         plain: bool = PLAIN,
-        db: Session = Depends(session),
+        work: Workspace = Depends(space),
     ) -> Any:
-        lines = department_summary(load_directory(db), load_ledger(db), department, on)
+        lines = department_summary(work.directory(), work.ledger(), department, on)
         return page(lines, plain)
 
     @router.get("/overdue")
-    def overdue(on: date, plain: bool = PLAIN, db: Session = Depends(session)) -> Any:
-        return page(overdue_report(load_ledger(db), on), plain)
+    def overdue(on: date, plain: bool = PLAIN, work: Workspace = Depends(space)) -> Any:
+        return page(overdue_report(work.ledger(), on), plain)
 
     @router.get("/letters")
-    def letters(on: date, plain: bool = PLAIN, db: Session = Depends(session)) -> Any:
-        due = notices_due(load_ledger(db), on, NoticeLog(), shop.settings.notices)
+    def letters(on: date, plain: bool = PLAIN, work: Workspace = Depends(space)) -> Any:
+        due = notices_due(work.ledger(), on, NoticeLog(), shop.settings.notices)
         return page(notice_run(due), plain)
 
     @router.get("/campus")
-    def campus(plain: bool = PLAIN, db: Session = Depends(session)) -> Any:
-        numbers = campus_numbers(
-            load_openings(db), load_coverage(db), load_ledger(db), load_deposits(db)
-        )
+    def campus(plain: bool = PLAIN, work: Workspace = Depends(space)) -> Any:
+        numbers = campus_numbers(work.openings(), work.coverage(), work.ledger(), work.deposits())
         return page(summary(numbers), plain)
 
     @router.get("/exposure")
-    def widest(limit: int = Query(default=5, ge=1, le=50), db: Session = Depends(session)) -> Any:
-        found = exposure(load_coverage(db), load_ledger(db), limit)
+    def widest(limit: int = Query(default=5, ge=1, le=50), work: Workspace = Depends(space)) -> Any:
+        found = exposure(work.coverage(), work.ledger(), limit)
         return {"keys": [{"symbol": symbol, "openings": count} for symbol, count in found]}
 
     @router.get("/buildings")
-    def buildings(db: Session = Depends(session)) -> Any:
-        return {"keys_by_building": keys_by_building(load_coverage(db), load_ledger(db))}
+    def buildings(work: Workspace = Depends(space)) -> Any:
+        return {"keys_by_building": keys_by_building(work.coverage(), work.ledger())}
 
     return router
