@@ -12,6 +12,7 @@ from hasplib.persistence.models.access import (
     ReviewLineRow,
     ReviewRow,
 )
+from hasplib.persistence.models.annual import AnnualReturnRow
 from hasplib.persistence.models.audit import AuditEntryRow
 from hasplib.persistence.models.campus import (
     AccessGroupRow,
@@ -53,6 +54,7 @@ from hasplib.persistence.models.transfer import TransferRow
 __all__ = [
     "AccessGroupRow",
     "AccessRequirementRow",
+    "AnnualReturnRow",
     "AuditEntryRow",
     "AuthorizerRow",
     "BlankRow",
