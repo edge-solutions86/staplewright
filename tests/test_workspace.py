@@ -140,3 +140,56 @@ def test_a_workspace_can_be_built_from_a_shop(session):
     space = workspace_for(Shop(), session)
     assert space.quarantine_years == 7
     assert space.rules.max_run == ShopSettings().cutting.max_run
+
+
+def test_the_incident_service_holds_one_coverage_map(session):
+    from hasplib.services.incidents import IncidentService
+
+    service = IncidentService(session)
+    assert service.coverage() is service.coverage()
+
+
+def test_the_incident_service_does_not_hold_the_ledger(session):
+    from hasplib.services.incidents import IncidentService
+
+    service = IncidentService(session)
+    assert service.ledger() is not service.ledger()
+
+
+def test_a_closed_key_is_gone_from_the_next_ledger_read(session):
+    from datetime import date
+
+    from hasplib.rekey.compromise import Cause
+    from hasplib.services.incidents import IncidentService
+
+    service = IncidentService(session)
+    service.open_series()
+    before = len(service.ledger().out())
+    service.report("41207", Cause.LOST, date(2025, 6, 30))
+    assert len(service.ledger().out()) == before - 1
+
+
+def test_the_export_service_takes_a_workspace(session):
+    from hasplib.services.exports import ExportService
+
+    space = Workspace(session)
+    service = ExportService(session, space)
+    service.rows_for("openings")
+    assert "openings" in space.loaded
+
+
+def test_two_exports_share_the_openings(session):
+    from hasplib.services.exports import ExportService
+
+    space = Workspace(session)
+    service = ExportService(session, space)
+    service.rows_for("openings")
+    service.rows_for("cylinders")
+    assert space.loaded.count("openings") == 1
+
+
+def test_an_export_service_makes_its_own_workspace_when_it_has_to(session):
+    from hasplib.services.exports import ExportService
+
+    service = ExportService(session)
+    assert service.rows_for("openings")[1]

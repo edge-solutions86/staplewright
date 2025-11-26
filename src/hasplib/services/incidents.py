@@ -22,7 +22,7 @@ from hasplib.campus.coverage import CoverageMap
 from hasplib.control.issue import KeyLedger
 from hasplib.errors import ConflictError, NotFoundError
 from hasplib.keys.symbol import KeySymbol
-from hasplib.persistence.loaders import load_coverage, load_ledger
+from hasplib.persistence.loaders import load_ledger
 from hasplib.persistence.models.control import IssuedKeyRow
 from hasplib.persistence.models.rekey import (
     IncidentRow,
@@ -32,6 +32,7 @@ from hasplib.persistence.models.rekey import (
 )
 from hasplib.persistence.numbering import Numbering
 from hasplib.persistence.repositories import IncidentRepository, WorkOrderRepository
+from hasplib.persistence.workspace import Workspace
 from hasplib.rekey.compromise import Assessment, Cause, Incident, assess
 from hasplib.rekey.quarantine import RetirementReason
 from hasplib.rekey.scope import DEFAULT_POLICY, ScopeDecision, ScopePolicy, decide
@@ -49,12 +50,24 @@ class IncidentService:
         self.incidents = IncidentRepository(session)
         self.orders = WorkOrderRepository(session)
         self.policy = policy
+        self.space = Workspace(session)
 
     def coverage(self) -> CoverageMap:
-        """The map from cylinders to symbols, rebuilt out of the tables."""
-        return load_coverage(self.session)
+        """The map from cylinders to symbols, built once per service.
+
+        Assessing an incident asks for this three times, and rebuilding the
+        whole campus each time made a lost grand master take four seconds to
+        report on a campus of four hundred doors.
+        """
+        return self.space.coverage()
 
     def ledger(self) -> KeyLedger:
+        """The ledger as it stands now, which is not something to hold on to.
+
+        Reporting an incident closes a key, so a cached ledger read after one
+        would still show it out. Only the coverage is held, because nothing
+        this service does moves a cylinder.
+        """
         return load_ledger(self.session)
 
     def report(

@@ -26,7 +26,6 @@ from hasplib.campus.keyed_alike import KeyedAlikeSet
 from hasplib.control.review import Answer, Review, ReviewState
 from hasplib.errors import ConflictError, InputError, NotFoundError
 from hasplib.lifecycle import require_state
-from hasplib.persistence.loaders import load_ledger
 from hasplib.persistence.mappers.access import (
     alike_from_row,
     alike_to_rows,
@@ -39,6 +38,7 @@ from hasplib.persistence.models.access import (
     ReviewLineRow,
     ReviewRow,
 )
+from hasplib.persistence.workspace import Workspace
 
 
 class ReviewService:
@@ -56,7 +56,7 @@ class ReviewService:
                 opened_on=opened_on.isoformat(),
             )
         review = Review(department, opened_on, due_on)
-        review.build_from(load_ledger(self.session))
+        review.build_from(Workspace(self.session).ledger())
         header, lines = review_to_header(review)
         self.session.add(header)
         self.session.flush()

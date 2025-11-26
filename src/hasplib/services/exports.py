@@ -19,14 +19,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from hasplib.errors import InputError, NotFoundError
-from hasplib.persistence.loaders import (
-    load_deposits,
-    load_ledger,
-    load_openings,
-    load_register,
-    load_schedule,
-)
-from hasplib.persistence.repositories import SystemRepository
+from hasplib.persistence.workspace import Workspace
 from hasplib.reports.exports import (
     CYLINDERS,
     HOLDINGS,
@@ -44,9 +37,10 @@ FORMATS = ("csv", "json")
 class ExportService:
     """Every export the shop hands out, built off the same loaders as the reports."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, workspace: Workspace | None = None) -> None:
         self.session = session
-        self.systems = SystemRepository(session)
+        self.space = workspace or Workspace(session)
+        self.systems = self.space.systems
 
     def names(self) -> tuple[str, ...]:
         return table_names()
@@ -57,13 +51,11 @@ class ExportService:
         if name == "schedule":
             return wanted, SCHEDULE.rows(self._schedule(system).entries())
         if name == "openings":
-            return wanted, OPENINGS.rows(load_openings(self.session))
+            return wanted, OPENINGS.rows(self.space.openings())
         if name == "cylinders":
-            return wanted, CYLINDERS.rows(load_register(self.session))
+            return wanted, CYLINDERS.rows(self.space.register())
         if name == "holdings":
-            return wanted, HOLDINGS.rows(
-                load_ledger(self.session).out(), load_deposits(self.session)
-            )
+            return wanted, HOLDINGS.rows(self.space.ledger().out(), self.space.deposits())
         raise NotFoundError("nothing is exported under that name", table=name)
 
     def text(self, name: str, shape: str = "csv", system: str = "") -> str:
@@ -98,10 +90,7 @@ class ExportService:
     def _schedule(self, system: str) -> Any:
         if not system.strip():
             raise InputError("a schedule export names a system")
-        row = self.systems.by_name(system)
-        if row is None:
-            raise NotFoundError("no such keying system", system=system)
-        return load_schedule(self.session, row)
+        return self.space.schedule(system)
 
     def systems_to_export(self) -> Sequence[str]:
         return tuple(row.name for row in self.systems.live())

@@ -11,7 +11,7 @@ import click
 
 from hasplib.cli.common import as_day, day_option, echo_lines, working
 from hasplib.control.notices import NoticeLog, notices_due
-from hasplib.persistence.loaders import load_deposits, load_directory, load_ledger
+from hasplib.persistence.workspace import Workspace
 from hasplib.reports.control import (
     department_summary,
     deposit_statement,
@@ -33,8 +33,8 @@ def counter() -> None:
 @click.pass_obj
 def series(shop) -> None:
     """Open the tag and request counters. Once, when the shop is set up."""
-    with shop.session() as session:
-        CounterService(session, shop.settings.deposits).open_series()
+    with working(shop, CounterService, shop.settings.deposits) as service:
+        service.open_series()
         click.echo("tag and request series opened")
 
 
@@ -120,11 +120,9 @@ def report_lost(shop, tag, note, when) -> None:
 @click.pass_obj
 def statement(shop, keyholder, when) -> None:
     """The sheet a keyholder signs."""
-    with shop.session() as session:
-        directory = load_directory(session)
-        ledger = load_ledger(session)
-        book = load_deposits(session)
-        echo_lines(keyholder_statement(directory.person(keyholder), ledger, book, as_day(when)))
+    with working(shop, Workspace) as space:
+        person = space.directory().person(keyholder)
+        echo_lines(keyholder_statement(person, space.ledger(), space.deposits(), as_day(when)))
 
 
 @counter.command("deposits")
@@ -132,8 +130,8 @@ def statement(shop, keyholder, when) -> None:
 @click.pass_obj
 def deposits(shop, keyholder) -> None:
     """Every deposit line against one person."""
-    with shop.session() as session:
-        echo_lines(deposit_statement(load_deposits(session), keyholder))
+    with working(shop, Workspace) as space:
+        echo_lines(deposit_statement(space.deposits(), keyholder))
 
 
 @counter.command("department")
@@ -142,10 +140,8 @@ def deposits(shop, keyholder) -> None:
 @click.pass_obj
 def department(shop, department, when) -> None:
     """Who in a department holds what."""
-    with shop.session() as session:
-        directory = load_directory(session)
-        ledger = load_ledger(session)
-        echo_lines(department_summary(directory, ledger, department, as_day(when)))
+    with working(shop, Workspace) as space:
+        echo_lines(department_summary(space.directory(), space.ledger(), department, as_day(when)))
 
 
 @counter.command("overdue")
@@ -153,8 +149,8 @@ def department(shop, department, when) -> None:
 @click.pass_obj
 def overdue(shop, when) -> None:
     """The chase list."""
-    with shop.session() as session:
-        echo_lines(overdue_report(load_ledger(session), as_day(when)))
+    with working(shop, Workspace) as space:
+        echo_lines(overdue_report(space.ledger(), as_day(when)))
 
 
 @counter.command("letters")
@@ -162,7 +158,6 @@ def overdue(shop, when) -> None:
 @click.pass_obj
 def letters(shop, when) -> None:
     """What the notices run would send today."""
-    with shop.session() as session:
-        ledger = load_ledger(session)
-        due = notices_due(ledger, as_day(when), NoticeLog(), shop.settings.notices)
+    with working(shop, Workspace) as space:
+        due = notices_due(space.ledger(), as_day(when), NoticeLog(), shop.settings.notices)
         echo_lines(notice_run(due))
