@@ -22,6 +22,7 @@ from hasplib.control.escrow import BoxPolicy
 from hasplib.control.notices import NoticePolicy
 from hasplib.control.transfer import TransferPolicy
 from hasplib.errors import InputError
+from hasplib.keys.stamping import Marking, StampPolicy
 from hasplib.rekey.costing import RateCard
 from hasplib.rekey.scope import ScopePolicy
 from hasplib.spec.rules import CuttingRules
@@ -40,6 +41,7 @@ class ShopSettings:
     rates: RateCard = field(default_factory=RateCard)
     boxes: BoxPolicy = field(default_factory=BoxPolicy)
     transfers: TransferPolicy = field(default_factory=TransferPolicy)
+    stamping: StampPolicy = field(default_factory=StampPolicy)
     quarantine_years: int = 7
     progression_step: int = 2
 
@@ -67,6 +69,8 @@ class ShopSettings:
             f"boxes: no wider than level {self.boxes.lowest_level}, "
             f"checked every {self.boxes.check_days} days",
             f"handovers: confirmed inside {self.transfers.confirm_days} days",
+            f"stamping: change keys carry {self.stamping.change_keys.value}, "
+            f"masters carry {self.stamping.masters.value}",
             f"quarantine: {self.quarantine_years} years",
             f"progression: {self.progression_step} steps",
         )
@@ -95,6 +99,18 @@ def _flag(source: Mapping[str, str], name: str, fallback: bool) -> bool:
     if lowered in {"0", "false", "no", "off"}:
         return False
     raise InputError("that setting is true or false", setting=name, value=raw)
+
+
+def _marking(source: Mapping[str, str], name: str, fallback: Marking) -> Marking:
+    """A marking by its own name, which is what a person would type."""
+    raw = source.get(PREFIX + name)
+    if raw is None:
+        return fallback
+    wanted = raw.strip().lower()
+    for item in Marking:
+        if wanted in {item.name.lower(), item.value}:
+            return item
+    raise InputError("nothing gets stamped that way", setting=name, value=raw)
 
 
 def from_mapping(source: Mapping[str, str]) -> ShopSettings:
@@ -145,6 +161,12 @@ def from_mapping(source: Mapping[str, str]) -> ShopSettings:
             allow_master_transfer=_flag(
                 source, "MASTER_HANDOVER", DEFAULTS.transfers.allow_master_transfer
             ),
+        ),
+        stamping=StampPolicy(
+            change_keys=_marking(source, "STAMP_CHANGE_KEYS", DEFAULTS.stamping.change_keys),
+            masters=_marking(source, "STAMP_MASTERS", DEFAULTS.stamping.masters),
+            add_do_not_duplicate=_flag(source, "STAMP_DND", DEFAULTS.stamping.add_do_not_duplicate),
+            bow_characters=_whole(source, "BOW_CHARACTERS", DEFAULTS.stamping.bow_characters),
         ),
         quarantine_years=_whole(source, "QUARANTINE_YEARS", DEFAULTS.quarantine_years),
         progression_step=_whole(source, "PROGRESSION_STEP", DEFAULTS.progression_step),

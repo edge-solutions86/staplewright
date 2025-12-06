@@ -139,6 +139,7 @@ from hasplib.cli.export import export  # noqa: E402
 from hasplib.cli.keyways import keyways  # noqa: E402
 from hasplib.cli.phasing import phasing  # noqa: E402
 from hasplib.cli.rekey import rekey  # noqa: E402
+from hasplib.cli.stamping import stamping  # noqa: E402
 from hasplib.cli.stock import stock  # noqa: E402
 from hasplib.cli.systems import systems  # noqa: E402
 
@@ -152,6 +153,7 @@ cli.add_command(boxes)
 cli.add_command(phasing)
 cli.add_command(export)
 cli.add_command(annual)
+cli.add_command(stamping)
 
 
 def run(argv: list[str] | None = None) -> int:

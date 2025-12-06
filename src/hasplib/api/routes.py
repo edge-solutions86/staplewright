@@ -11,6 +11,7 @@ from hasplib.api.incidents import build_router as incidents_router
 from hasplib.api.keys import build_router as keys_router
 from hasplib.api.pinning import build_router as pinning_router
 from hasplib.api.reports import build_router as reports_router
+from hasplib.api.stamping import build_router as stamping_router
 from hasplib.api.stock import build_router as stock_router
 from hasplib.api.systems import build_router as systems_router
 from hasplib.api.transfer import build_router as transfer_router
@@ -28,4 +29,5 @@ def register_routes(app: FastAPI, shop: object) -> FastAPI:
     app.include_router(boxes_router(shop))
     app.include_router(transfer_router(shop))
     app.include_router(annual_router(shop))
+    app.include_router(stamping_router(shop))
     return app

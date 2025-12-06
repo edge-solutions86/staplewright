@@ -94,7 +94,7 @@ def test_a_negative_deposit_rate_is_refused():
 
 def test_the_description_names_every_group():
     lines = DEFAULTS.describe()
-    assert len(lines) == 8
+    assert len(lines) == 9
     assert any(line.startswith("deposits:") for line in lines)
     assert any(line.startswith("quarantine:") for line in lines)
 
