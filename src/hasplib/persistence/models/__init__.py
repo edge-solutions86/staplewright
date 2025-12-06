@@ -44,6 +44,7 @@ from hasplib.persistence.models.rekey import (
     WorkOrderLineRow,
     WorkOrderRow,
 )
+from hasplib.persistence.models.stamping import BlindCodeRow
 from hasplib.persistence.models.stock import (
     PurchaseLineRow,
     PurchaseOrderRow,
@@ -58,6 +59,7 @@ __all__ = [
     "AuditEntryRow",
     "AuthorizerRow",
     "BlankRow",
+    "BlindCodeRow",
     "BuildingRow",
     "ChartRow",
     "CounterRow",
