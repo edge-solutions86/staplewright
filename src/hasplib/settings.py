@@ -14,8 +14,9 @@ intended.
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
+from typing import Any
 
 from hasplib.control.deposits import DepositRates
 from hasplib.control.escrow import BoxPolicy
@@ -28,6 +29,7 @@ from hasplib.rekey.scope import ScopePolicy
 from hasplib.spec.rules import CuttingRules
 
 PREFIX = "HASPLIB_"
+Reader = Callable[[Mapping[str, str], str, Any], Any]
 
 
 @dataclass(frozen=True)
@@ -113,64 +115,92 @@ def _marking(source: Mapping[str, str], name: str, fallback: Marking) -> Marking
     raise InputError("nothing gets stamped that way", setting=name, value=raw)
 
 
+def _reader(kind: type) -> Reader:
+    if kind is bool:
+        return _flag
+    if kind is Marking:
+        return _marking
+    return _whole
+
+
+@dataclass(frozen=True)
+class Setting:
+    """One knob: where it lives, what it is called, and how it reads."""
+
+    group: str
+    attribute: str
+    variable: str
+
+    def read(self, source: Mapping[str, str], fallback: Any) -> Any:
+        return _reader(type(fallback))(source, self.variable, fallback)
+
+
+SETTINGS = (
+    Setting("cutting", "max_run", "MAX_RUN"),
+    Setting("cutting", "min_distinct", "MIN_DISTINCT"),
+    Setting("deposits", "change_key_cents", "DEPOSIT_CHANGE_CENTS"),
+    Setting("deposits", "master_cents", "DEPOSIT_MASTER_CENTS"),
+    Setting("notices", "reminder_days", "REMINDER_DAYS"),
+    Setting("notices", "first_days", "FIRST_NOTICE_DAYS"),
+    Setting("notices", "second_days", "SECOND_NOTICE_DAYS"),
+    Setting("notices", "hold_days", "HOLD_DAYS"),
+    Setting("notices", "write_off_days", "WRITE_OFF_DAYS"),
+    Setting("scope", "recut_all_on_repin", "STRICT_REPIN"),
+    Setting("scope", "always_rekey_exterior", "REKEY_EXTERIOR"),
+    Setting("scope", "always_rekey_masters", "REKEY_MASTERS"),
+    Setting("scope", "ignore_below_openings", "IGNORE_BELOW"),
+    Setting("rates", "labour_cents_per_hour", "LABOUR_CENTS_HOUR"),
+    Setting("rates", "blank_cents", "BLANK_CENTS"),
+    Setting("boxes", "lowest_level", "BOX_LOWEST_LEVEL"),
+    Setting("boxes", "check_days", "BOX_CHECK_DAYS"),
+    Setting("boxes", "reseal_days", "BOX_RESEAL_DAYS"),
+    Setting("transfers", "confirm_days", "CONFIRM_DAYS"),
+    Setting("transfers", "allow_master_transfer", "MASTER_HANDOVER"),
+    Setting("stamping", "change_keys", "STAMP_CHANGE_KEYS"),
+    Setting("stamping", "masters", "STAMP_MASTERS"),
+    Setting("stamping", "add_do_not_duplicate", "STAMP_DND"),
+    Setting("stamping", "bow_characters", "BOW_CHARACTERS"),
+    Setting("", "quarantine_years", "QUARANTINE_YEARS"),
+    Setting("", "progression_step", "PROGRESSION_STEP"),
+)
+"""Every knob this shop has, one row each.
+
+This used to be written out three times over: once in the dataclass, once in
+a constructor call inside ``from_mapping``, and once again in the test that
+proved the variable was read. Adding a setting meant editing all three and
+the third was the one people forgot, so a setting would ship unread and the
+default would quietly stand for a year.
+"""
+
+
+def variable_names() -> tuple[str, ...]:
+    """Every environment variable this reads, which is the documentation."""
+    return tuple(sorted(PREFIX + item.variable for item in SETTINGS))
+
+
+def _group_of(settings: ShopSettings, name: str) -> Any:
+    return settings if not name else getattr(settings, name)
+
+
 def from_mapping(source: Mapping[str, str]) -> ShopSettings:
-    """Build settings from a mapping, leaving anything absent at its default."""
-    return ShopSettings(
-        cutting=CuttingRules(
-            max_run=_whole(source, "MAX_RUN", DEFAULTS.cutting.max_run),
-            min_distinct=_whole(source, "MIN_DISTINCT", DEFAULTS.cutting.min_distinct),
-        ),
-        deposits=DepositRates(
-            change_key_cents=_whole(
-                source, "DEPOSIT_CHANGE_CENTS", DEFAULTS.deposits.change_key_cents
-            ),
-            master_cents=_whole(source, "DEPOSIT_MASTER_CENTS", DEFAULTS.deposits.master_cents),
-        ),
-        notices=NoticePolicy(
-            reminder_days=_whole(source, "REMINDER_DAYS", DEFAULTS.notices.reminder_days),
-            first_days=_whole(source, "FIRST_NOTICE_DAYS", DEFAULTS.notices.first_days),
-            second_days=_whole(source, "SECOND_NOTICE_DAYS", DEFAULTS.notices.second_days),
-            hold_days=_whole(source, "HOLD_DAYS", DEFAULTS.notices.hold_days),
-            write_off_days=_whole(source, "WRITE_OFF_DAYS", DEFAULTS.notices.write_off_days),
-        ),
-        scope=ScopePolicy(
-            recut_all_on_repin=_flag(source, "STRICT_REPIN", DEFAULTS.scope.recut_all_on_repin),
-            always_rekey_exterior=_flag(
-                source, "REKEY_EXTERIOR", DEFAULTS.scope.always_rekey_exterior
-            ),
-            always_rekey_masters=_flag(
-                source, "REKEY_MASTERS", DEFAULTS.scope.always_rekey_masters
-            ),
-            ignore_below_openings=_whole(
-                source, "IGNORE_BELOW", DEFAULTS.scope.ignore_below_openings
-            ),
-        ),
-        rates=RateCard(
-            labour_cents_per_hour=_whole(
-                source, "LABOUR_CENTS_HOUR", DEFAULTS.rates.labour_cents_per_hour
-            ),
-            blank_cents=_whole(source, "BLANK_CENTS", DEFAULTS.rates.blank_cents),
-        ),
-        boxes=BoxPolicy(
-            lowest_level=_whole(source, "BOX_LOWEST_LEVEL", DEFAULTS.boxes.lowest_level),
-            check_days=_whole(source, "BOX_CHECK_DAYS", DEFAULTS.boxes.check_days),
-            reseal_days=_whole(source, "BOX_RESEAL_DAYS", DEFAULTS.boxes.reseal_days),
-        ),
-        transfers=TransferPolicy(
-            confirm_days=_whole(source, "CONFIRM_DAYS", DEFAULTS.transfers.confirm_days),
-            allow_master_transfer=_flag(
-                source, "MASTER_HANDOVER", DEFAULTS.transfers.allow_master_transfer
-            ),
-        ),
-        stamping=StampPolicy(
-            change_keys=_marking(source, "STAMP_CHANGE_KEYS", DEFAULTS.stamping.change_keys),
-            masters=_marking(source, "STAMP_MASTERS", DEFAULTS.stamping.masters),
-            add_do_not_duplicate=_flag(source, "STAMP_DND", DEFAULTS.stamping.add_do_not_duplicate),
-            bow_characters=_whole(source, "BOW_CHARACTERS", DEFAULTS.stamping.bow_characters),
-        ),
-        quarantine_years=_whole(source, "QUARANTINE_YEARS", DEFAULTS.quarantine_years),
-        progression_step=_whole(source, "PROGRESSION_STEP", DEFAULTS.progression_step),
-    )
+    """Build settings from a mapping, leaving anything absent at its default.
+
+    Built by walking the table rather than by naming every field, so a knob
+    that is in the table is read and a knob that is not cannot be.
+    """
+    changes: dict[str, dict[str, Any]] = {}
+    top: dict[str, Any] = {}
+    for item in SETTINGS:
+        fallback = getattr(_group_of(DEFAULTS, item.group), item.attribute)
+        found = item.read(source, fallback)
+        if item.group:
+            changes.setdefault(item.group, {})[item.attribute] = found
+        else:
+            top[item.attribute] = found
+    groups = {
+        name: replace(_group_of(DEFAULTS, name), **values) for name, values in changes.items()
+    }
+    return replace(DEFAULTS, **groups, **top)
 
 
 def from_env() -> ShopSettings:

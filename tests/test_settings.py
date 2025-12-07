@@ -154,3 +154,62 @@ def test_a_handover_window_of_nothing_is_refused():
 
 def test_the_description_says_how_long_a_claim_stands():
     assert any(line.startswith("handovers:") for line in DEFAULTS.describe())
+
+
+def test_every_setting_names_a_field_that_exists():
+    from hasplib.settings import SETTINGS, _group_of
+
+    for item in SETTINGS:
+        group = _group_of(DEFAULTS, item.group)
+        assert hasattr(group, item.attribute), item.variable
+
+
+def test_no_two_settings_share_a_variable():
+    from hasplib.settings import SETTINGS
+
+    names = [item.variable for item in SETTINGS]
+    assert len(names) == len(set(names))
+
+
+def test_no_two_settings_write_the_same_field():
+    from hasplib.settings import SETTINGS
+
+    fields = [(item.group, item.attribute) for item in SETTINGS]
+    assert len(fields) == len(set(fields))
+
+
+def test_every_variable_is_read_from_the_environment():
+    from hasplib.settings import PREFIX, SETTINGS
+
+    for item in SETTINGS:
+        fallback = getattr(
+            DEFAULTS if not item.group else getattr(DEFAULTS, item.group), item.attribute
+        )
+        if isinstance(fallback, bool):
+            written = "no" if fallback else "yes"
+        elif isinstance(fallback, int):
+            written = str(fallback + 1)
+        else:
+            continue
+        settings = from_mapping({PREFIX + item.variable: written})
+        group = settings if not item.group else getattr(settings, item.group)
+        assert str(getattr(group, item.attribute)).lower() != str(fallback).lower(), item.variable
+
+
+def test_the_variable_names_are_documented():
+    from hasplib.settings import variable_names
+
+    found = variable_names()
+    assert "HASPLIB_MAX_RUN" in found
+    assert found == tuple(sorted(found))
+
+
+def test_a_mapping_with_nothing_in_it_is_the_defaults():
+    assert from_mapping({}) == DEFAULTS
+
+
+def test_one_setting_leaves_the_rest_alone():
+    settings = from_mapping({"HASPLIB_MAX_RUN": "5"})
+    assert settings.cutting.max_run == 5
+    assert settings.cutting.min_distinct == DEFAULTS.cutting.min_distinct
+    assert settings.notices == DEFAULTS.notices
