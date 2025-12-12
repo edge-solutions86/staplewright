@@ -14,7 +14,7 @@ to another null, so any number of cylinders can sit in the drawer at once.
 
 from __future__ import annotations
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from hasplib.persistence.base import Base, Code, Name, Note
@@ -42,7 +42,11 @@ class OpeningRow(Base):
     """One door, hatch, gate or cabinet."""
 
     __tablename__ = "openings"
-    __table_args__ = (UniqueConstraint("building_code", "room", "floor"),)
+    __table_args__ = (
+        UniqueConstraint("building_code", "room", "floor"),
+        Index("ix_openings_building", "building_code"),
+        Index("ix_openings_function", "function"),
+    )
 
     number: Mapped[Code] = mapped_column(primary_key=True)
     building_code: Mapped[str] = mapped_column(ForeignKey("buildings.code", ondelete="RESTRICT"))
@@ -69,6 +73,9 @@ class CylinderRow(Base):
         CheckConstraint(
             "(installed_at is null) = (position is null)", name="installed_has_a_position"
         ),
+        # The coverage map is built from these two joins on every report.
+        Index("ix_cylinders_installed_at", "installed_at"),
+        Index("ix_cylinders_group_id", "group_id"),
     )
 
     serial: Mapped[Code] = mapped_column(primary_key=True)

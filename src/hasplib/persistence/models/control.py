@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from hasplib.persistence.base import Base, Code, Name, Note
@@ -80,6 +80,8 @@ class KeyRequestRow(Base):
             "state not in ('approved', 'denied') or decided_on is not null",
             name="decided_has_a_date",
         ),
+        Index("ix_key_requests_state", "state"),
+        Index("ix_key_requests_keyholder", "keyholder"),
     )
 
     number: Mapped[Code] = mapped_column(primary_key=True)
@@ -105,6 +107,11 @@ class IssuedKeyRow(Base):
     __table_args__ = (
         CheckConstraint("deposit_cents >= 0", name="deposit_not_negative"),
         CheckConstraint("due_on is null or due_on >= issued_on", name="due_after_issue"),
+        # Every counter question starts with one of these two. Who has what,
+        # and what is late, and both of them were reading the whole table.
+        Index("ix_issued_keys_holder_state", "keyholder", "state"),
+        Index("ix_issued_keys_state_due", "state", "due_on"),
+        Index("ix_issued_keys_symbol_state", "symbol", "state"),
     )
 
     tag: Mapped[Code] = mapped_column(primary_key=True)
@@ -132,7 +139,11 @@ class DepositLineRow(Base):
     """One movement of deposit money. There is no balance column anywhere."""
 
     __tablename__ = "deposit_lines"
-    __table_args__ = (CheckConstraint("cents > 0", name="cents_positive"),)
+    __table_args__ = (
+        CheckConstraint("cents > 0", name="cents_positive"),
+        Index("ix_deposit_lines_keyholder", "keyholder"),
+        Index("ix_deposit_lines_tag", "tag"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     tag: Mapped[str] = mapped_column(ForeignKey("issued_keys.tag", ondelete="RESTRICT"))

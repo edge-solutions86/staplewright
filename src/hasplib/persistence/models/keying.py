@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import CheckConstraint, ForeignKey, Integer, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from hasplib.keys.bitting import Bitting
@@ -88,7 +88,10 @@ class GroupRow(Base):
     """A set of symbols one cylinder answers to."""
 
     __tablename__ = "keying_groups"
-    __table_args__ = (UniqueConstraint("system_id", "name"),)
+    __table_args__ = (
+        UniqueConstraint("system_id", "name"),
+        Index("ix_keying_groups_name", "name"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     system_id: Mapped[int] = mapped_column(ForeignKey("keying_systems.id", ondelete="CASCADE"))

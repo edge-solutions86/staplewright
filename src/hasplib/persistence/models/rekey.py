@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import CheckConstraint, ForeignKey, Integer, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from hasplib.keys.bitting import Bitting
@@ -83,7 +83,10 @@ class WorkOrderLineRow(Base):
     """One cylinder on one work order."""
 
     __tablename__ = "work_order_lines"
-    __table_args__ = (UniqueConstraint("order_number", "serial"),)
+    __table_args__ = (
+        UniqueConstraint("order_number", "serial"),
+        Index("ix_work_order_lines_opening", "opening_number"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     order_number: Mapped[str] = mapped_column(ForeignKey("work_orders.number", ondelete="CASCADE"))
