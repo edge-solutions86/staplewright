@@ -83,10 +83,6 @@ def build_app(engine: Engine, settings: ShopSettings | None = None) -> FastAPI:
     async def refused(request: Request, error: HaspError) -> JSONResponse:
         return JSONResponse(status_code=status_for(error), content=error.as_dict())
 
-    @app.get("/health", tags=["service"])
-    def health() -> dict[str, str]:
-        return {"status": "up", "version": __version__}
-
     @app.get("/settings", tags=["service"])
     def settings_lines() -> dict[str, list[str]]:
         return {"settings": list(shop.settings.describe())}

@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from hasplib.api.annual import build_router as annual_router
 from hasplib.api.boxes import build_router as boxes_router
 from hasplib.api.doors import build_router as doors_router
+from hasplib.api.health import build_router as health_router
 from hasplib.api.incidents import build_router as incidents_router
 from hasplib.api.keys import build_router as keys_router
 from hasplib.api.pinning import build_router as pinning_router
@@ -19,6 +20,7 @@ from hasplib.api.transfer import build_router as transfer_router
 
 def register_routes(app: FastAPI, shop: object) -> FastAPI:
     """Attach every router this service exposes."""
+    app.include_router(health_router(shop))
     app.include_router(systems_router(shop))
     app.include_router(keys_router(shop))
     app.include_router(incidents_router(shop))
