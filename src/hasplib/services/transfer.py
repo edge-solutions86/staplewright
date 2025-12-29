@@ -81,10 +81,7 @@ class TransferService:
         return book_from_rows(self.transfers.all(), self.policy)
 
     def row(self, number: str) -> TransferRow:
-        found = self.transfers.find(number)
-        if found is None:
-            raise NotFoundError("no such handover", transfer=number)
-        return found
+        return self.transfers.require(number, "no such handover", transfer=number)
 
     def claim(self, tag: str, passed_to: str, when: date) -> TransferRow:
         """Somebody says they handed a key on. Nothing moves yet."""
@@ -163,9 +160,7 @@ class TransferService:
         return self.transfers.rows(TransferRow.state == str(state))
 
     def _must_be_out(self, tag: str) -> IssuedKeyRow:
-        key = self.keys.find(tag)
-        if key is None:
-            raise NotFoundError("no such key", tag=tag)
+        key = self.keys.require(tag, "no such key", tag=tag)
         if key.state != "out":
             raise ConflictError("that key is not out to anybody", tag=tag, state=key.state)
         return key

@@ -78,10 +78,7 @@ class EscrowService:
         return register_from_rows(self.boxes.all(), self.policy)
 
     def row(self, number: str) -> KeyBoxRow:
-        found = self.boxes.find(number)
-        if found is None:
-            raise NotFoundError("no such key box", box=number)
-        return found
+        return self.boxes.require(number, "no such key box", box=number)
 
     def box(self, number: str) -> KeyBox:
         return box_from_row(self.row(number))

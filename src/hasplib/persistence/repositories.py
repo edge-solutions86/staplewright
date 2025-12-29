@@ -66,10 +66,20 @@ class Repository(Generic[RowType]):
         return self.session.get(self.model, key)
 
     def get(self, key: Any) -> RowType:
+        return self.require(key)
+
+    def require(self, key: Any, message: str = "", **facts: Any) -> RowType:
+        """The row, or a refusal that names it the way the caller would.
+
+        Nine services had each written this out, and the facts on the error
+        were all spelled differently: one said ``key``, one said ``number``,
+        and the box service said ``box``. A caller catching one of them and
+        reading a fact off it got a key error against the others.
+        """
         found = self.find(key)
-        if found is None:
-            raise NotFoundError(f"no such {self.noun}", key=str(key))
-        return found
+        if found is not None:
+            return found
+        raise NotFoundError(message or f"no such {self.noun}", **(facts or {"key": str(key)}))
 
     def delete(self, row: RowType) -> None:
         self.session.delete(row)

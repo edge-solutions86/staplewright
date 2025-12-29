@@ -111,10 +111,7 @@ class StockService:
         self.orders = OrderRepository(session)
 
     def blank(self, part_number: str) -> BlankRow:
-        found = self.blanks.find(part_number)
-        if found is None:
-            raise NotFoundError("no such blank", part=part_number)
-        return found
+        return self.blanks.require(part_number, "no such blank", part=part_number)
 
     def on_hand(self, part_number: str) -> int:
         return self.blank(part_number).stock
@@ -234,10 +231,7 @@ class StockService:
         return order
 
     def order(self, number: str) -> PurchaseOrderRow:
-        found = self.orders.find(number)
-        if found is None:
-            raise NotFoundError("no such purchase order", order=number)
-        return found
+        return self.orders.require(number, "no such purchase order", order=number)
 
     def book_in(self, number: str, part_number: str, quantity: int, when: date) -> PurchaseLineRow:
         """Brass arrives against an order, which moves stock and the line."""

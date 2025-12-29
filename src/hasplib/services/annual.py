@@ -18,7 +18,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from hasplib.errors import ConflictError, NotFoundError
+from hasplib.errors import ConflictError
 from hasplib.persistence.models.annual import AnnualReturnRow
 from hasplib.persistence.repositories import Repository
 from hasplib.persistence.workspace import Workspace
@@ -83,10 +83,7 @@ class AnnualService:
         return take(self.space.ledger(), self.space.directory(), on)
 
     def filed(self, year: int) -> AnnualReturnRow:
-        found = self.returns.find(year)
-        if found is None:
-            raise NotFoundError("no return was filed for that year", year=year)
-        return found
+        return self.returns.require(year, "no return was filed for that year", year=year)
 
     def previous(self, year: int) -> Return | None:
         """The most recent filed return before a year, or nothing."""

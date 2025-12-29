@@ -96,3 +96,32 @@ def test_a_report_comes_back_as_text_when_asked(client):
 
 def test_the_plain_flag_is_a_query_and_never_a_path(client):
     assert client.get("/page/true").status_code == 404
+
+
+def test_every_router_in_the_list_is_attached(shop):
+    from hasplib.api.app import build_app
+    from hasplib.api.routes import ROUTERS
+
+    app = build_app(shop.engine)
+    tags = {tag for route in app.routes for tag in getattr(route, "tags", ())}
+    assert len(ROUTERS) == 12
+    assert {"service", "systems", "counter", "stamping", "returns"} <= tags
+
+
+def test_the_health_router_is_first():
+    from hasplib.api.routes import ROUTERS
+
+    assert ROUTERS[0].__name__.endswith(".health")
+
+
+def test_every_router_module_has_a_builder():
+    from hasplib.api.routes import ROUTERS
+
+    assert all(callable(module.build_router) for module in ROUTERS)
+
+
+def test_no_router_is_listed_twice():
+    from hasplib.api.routes import ROUTERS
+
+    names = [module.__name__ for module in ROUTERS]
+    assert len(names) == len(set(names))

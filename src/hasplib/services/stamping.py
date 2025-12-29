@@ -80,10 +80,8 @@ class StampingService:
         return row
 
     def code_for(self, symbol: KeySymbol) -> str:
-        row = self.codes.find(symbol.render())
-        if row is None:
-            raise NotFoundError("that symbol has no blind code", symbol=symbol.render())
-        return row.code
+        rendered = symbol.render()
+        return self.codes.require(rendered, "that symbol has no blind code", symbol=rendered).code
 
     def identify(self, code: str) -> str:
         """Somebody handed in a key with a number on it. One answer, one call."""
@@ -98,9 +96,7 @@ class StampingService:
 
     def stamp_key(self, tag: str, when: date, by: str = "") -> Stamp:
         """What goes on one issued key, assigning a code if it needs one."""
-        key = self.keys.find(tag)
-        if key is None:
-            raise NotFoundError("no such key", tag=tag)
+        key = self.keys.require(tag, "no such key", tag=tag)
         symbol = KeySymbol.parse(key.symbol)
         if self.policy.marking_for(symbol) is Marking.BLIND:
             self.assign(symbol, when, by)
@@ -110,9 +106,7 @@ class StampingService:
         """A run for the machine, assigning every code it needs first."""
         wanted: list[tuple[str, KeySymbol]] = []
         for tag in tags:
-            key = self.keys.find(tag)
-            if key is None:
-                raise NotFoundError("no such key", tag=tag)
+            key = self.keys.require(tag, "no such key", tag=tag)
             symbol = KeySymbol.parse(key.symbol)
             if self.policy.marking_for(symbol) is Marking.BLIND:
                 self.assign(symbol, when, by)
@@ -137,9 +131,8 @@ class StampingService:
         the shop will be handed back one day, and a book that cannot answer
         for it is a key nobody can identify.
         """
-        row = self.codes.find(symbol.render())
-        if row is None:
-            raise NotFoundError("that symbol has no blind code", symbol=symbol.render())
+        rendered = symbol.render()
+        row = self.codes.require(rendered, "that symbol has no blind code", symbol=rendered)
         still_out = [key for key in self.keys.out() if key.symbol == symbol.render()]
         if still_out:
             raise ConflictError(

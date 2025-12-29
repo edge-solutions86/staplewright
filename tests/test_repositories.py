@@ -396,3 +396,35 @@ def test_a_repository_can_reach_another_table(session):
 def test_an_unsorted_reach_across_gives_back_what_it_finds(session):
     charts = ChartRepository(session)
     assert list(charts.rows_of(BuildingRow)) == []
+
+
+def test_requiring_a_row_that_is_there_hands_it_back(session):
+    a_chart(session, "LA six pin", "Sargent")
+    charts = ChartRepository(session)
+    row = charts.rows()[0]
+    assert charts.require(row.id) is row
+
+
+def test_requiring_a_row_that_is_not_there_says_the_noun(session):
+    with pytest.raises(NotFoundError) as caught:
+        ChartRepository(session).require(99)
+    assert str(caught.value).startswith("no such chart")
+    assert caught.value.facts["key"] == "99"
+
+
+def test_a_caller_can_name_the_refusal_its_own_way(session):
+    with pytest.raises(NotFoundError) as caught:
+        ChartRepository(session).require(99, "no such family", family="Everest")
+    assert caught.value.facts == {"family": "Everest"}
+    assert "no such family" in str(caught.value)
+
+
+def test_a_caller_can_change_only_the_message(session):
+    with pytest.raises(NotFoundError) as caught:
+        ChartRepository(session).require(99, "nobody stocks that")
+    assert caught.value.facts["key"] == "99"
+
+
+def test_get_still_works_the_way_it_did(session):
+    with pytest.raises(NotFoundError):
+        ChartRepository(session).get(99)

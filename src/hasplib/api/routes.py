@@ -1,35 +1,57 @@
-"""Where the routers get attached. One import, so app.py stays readable."""
+"""Where the routers get attached, which is one list and one loop.
+
+Every router was two lines: an aliased import at the top and an include
+at the bottom. Eleven routers in, two of them had been imported and never
+attached, and nothing failed because an unattached router is just a
+function nobody calls.
+"""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from types import ModuleType
+
 from fastapi import FastAPI
 
-from hasplib.api.annual import build_router as annual_router
-from hasplib.api.boxes import build_router as boxes_router
-from hasplib.api.doors import build_router as doors_router
-from hasplib.api.health import build_router as health_router
-from hasplib.api.incidents import build_router as incidents_router
-from hasplib.api.keys import build_router as keys_router
-from hasplib.api.pinning import build_router as pinning_router
-from hasplib.api.reports import build_router as reports_router
-from hasplib.api.stamping import build_router as stamping_router
-from hasplib.api.stock import build_router as stock_router
-from hasplib.api.systems import build_router as systems_router
-from hasplib.api.transfer import build_router as transfer_router
+from hasplib.api import (
+    annual,
+    boxes,
+    doors,
+    health,
+    incidents,
+    keys,
+    pinning,
+    reports,
+    stamping,
+    stock,
+    systems,
+    transfer,
+)
+
+ROUTERS: Sequence[ModuleType] = (
+    health,
+    annual,
+    boxes,
+    doors,
+    incidents,
+    keys,
+    pinning,
+    reports,
+    stamping,
+    stock,
+    systems,
+    transfer,
+)
+"""Every router, in the order they are attached.
+
+Order matters in one place only. Health comes first because nothing else
+claims a path under it, and a router that could shadow another one has to
+come after it.
+"""
 
 
 def register_routes(app: FastAPI, shop: object) -> FastAPI:
     """Attach every router this service exposes."""
-    app.include_router(health_router(shop))
-    app.include_router(systems_router(shop))
-    app.include_router(keys_router(shop))
-    app.include_router(incidents_router(shop))
-    app.include_router(doors_router(shop))
-    app.include_router(reports_router(shop))
-    app.include_router(pinning_router(shop))
-    app.include_router(stock_router(shop))
-    app.include_router(boxes_router(shop))
-    app.include_router(transfer_router(shop))
-    app.include_router(annual_router(shop))
-    app.include_router(stamping_router(shop))
+    for module in ROUTERS:
+        app.include_router(module.build_router(shop))
     return app
