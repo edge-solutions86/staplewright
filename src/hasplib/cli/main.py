@@ -133,6 +133,7 @@ def tables(shop: Shop) -> None:
 
 from hasplib.cli.annual import annual  # noqa: E402
 from hasplib.cli.boxes import boxes  # noqa: E402
+from hasplib.cli.control import control  # noqa: E402
 from hasplib.cli.counter import counter  # noqa: E402
 from hasplib.cli.doors import doors  # noqa: E402
 from hasplib.cli.export import export  # noqa: E402
@@ -156,6 +157,7 @@ cli.add_command(export)
 cli.add_command(annual)
 cli.add_command(stamping)
 cli.add_command(bring_in)
+cli.add_command(control)
 
 
 def run(argv: list[str] | None = None) -> int:
