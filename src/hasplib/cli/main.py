@@ -8,23 +8,66 @@ one of them prints something a person can read out over a telephone.
 A refusal comes back as one line on standard error and an exit code of one.
 Not a traceback: a traceback in front of somebody holding a key blank is a
 support call.
+
+The groups are attached from a list at the bottom. They used to be thirteen
+imports at the foot of the file, each with a noqa on it because they had to
+come after the group they attach to, and two of them had been imported and
+never attached.
 """
 
 from __future__ import annotations
 
 import sys
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 
 import click
 from sqlalchemy.orm import Session
 
 from hasplib import __version__
+from hasplib.cli import service
+from hasplib.cli.annual import annual
+from hasplib.cli.boxes import boxes
+from hasplib.cli.control import control
+from hasplib.cli.counter import counter
+from hasplib.cli.doors import doors
+from hasplib.cli.export import export
+from hasplib.cli.imports import bring_in
+from hasplib.cli.keyways import keyways
+from hasplib.cli.phasing import phasing
+from hasplib.cli.rekey import rekey
+from hasplib.cli.stamping import stamping
+from hasplib.cli.stock import stock
+from hasplib.cli.systems import systems
 from hasplib.errors import HaspError
-from hasplib.persistence.engine import build_engine, build_sessions, create_schema
+from hasplib.persistence.engine import build_engine, build_sessions
 from hasplib.settings import from_env
 
 DEFAULT_URL = "sqlite+pysqlite:///hasplib.sqlite3"
+
+GROUPS: Sequence[click.Group] = (
+    boxes,
+    control,
+    counter,
+    doors,
+    export,
+    bring_in,
+    keyways,
+    phasing,
+    rekey,
+    annual,
+    stamping,
+    stock,
+    systems,
+)
+"""Every command group, in the order they appear in the help.
+
+Sorted by the name a person types rather than by the name of the variable,
+because two of them do not match: the handover group is imported as
+``bring_in`` and typed as ``import``, and the annual return group is imported
+as ``annual`` and typed as ``return``. Both of those are keywords, which is
+why they are not called what they are called.
+"""
 
 
 class Shop:
@@ -64,100 +107,11 @@ def cli(context: click.Context, database: str) -> None:
     context.obj = Shop(database)
 
 
-@cli.command("build")
-@click.pass_obj
-def build(shop: Shop) -> None:
-    """Create the tables. Migrations do this in production."""
-    create_schema(shop.engine)
-    click.echo(f"schema built at {shop.url}")
+for command in service.COMMANDS:
+    cli.add_command(command)
 
-
-@cli.command("settings")
-@click.pass_obj
-def settings(shop: Shop) -> None:
-    """Print the numbers this shop is running on."""
-    for line in shop.settings.describe():
-        click.echo(line)
-
-
-@cli.command("demo")
-@click.option("--on", "when", type=click.DateTime(["%Y-%m-%d"]), default=None)
-@click.pass_obj
-def demo(shop: Shop, when) -> None:
-    """Build the tables and fill them with a worked example campus."""
-    from datetime import date
-
-    from hasplib.persistence.seed import seed, summary
-
-    create_schema(shop.engine)
-    day = when.date() if when is not None else date.today()
-    with shop.session() as session:
-        seed(session, day)
-    click.echo(f"demo campus written to {shop.url}")
-    for line in summary():
-        click.echo(f"  {line}")
-
-
-@cli.command("check")
-@click.option("--on", "when", type=click.DateTime(["%Y-%m-%d"]), default=None)
-@click.option("--quiet", is_flag=True, help="print nothing, just set the exit code")
-@click.pass_obj
-def check(shop: Shop, when, quiet: bool) -> None:
-    """Run the self checks over the database and say what is wrong.
-
-    Exits one on a fault and nought on anything else, so a nightly run can
-    be wired to something that shouts without anybody parsing the output.
-    """
-    from datetime import date
-
-    from hasplib.health import exit_code, health_report, run_checks
-
-    today = when.date() if when is not None else date.today()
-    with shop.session() as session:
-        findings = run_checks(session, today)
-        if not quiet:
-            for line in health_report(session, today):
-                click.echo(line)
-    raise SystemExit(exit_code(findings))
-
-
-@cli.command("tables")
-@click.pass_obj
-def tables(shop: Shop) -> None:
-    """List the tables, which is the quickest check that a url is right."""
-    from hasplib.persistence.base import table_names
-
-    for name in table_names():
-        click.echo(name)
-
-
-from hasplib.cli.annual import annual  # noqa: E402
-from hasplib.cli.boxes import boxes  # noqa: E402
-from hasplib.cli.control import control  # noqa: E402
-from hasplib.cli.counter import counter  # noqa: E402
-from hasplib.cli.doors import doors  # noqa: E402
-from hasplib.cli.export import export  # noqa: E402
-from hasplib.cli.imports import bring_in  # noqa: E402
-from hasplib.cli.keyways import keyways  # noqa: E402
-from hasplib.cli.phasing import phasing  # noqa: E402
-from hasplib.cli.rekey import rekey  # noqa: E402
-from hasplib.cli.stamping import stamping  # noqa: E402
-from hasplib.cli.stock import stock  # noqa: E402
-from hasplib.cli.systems import systems  # noqa: E402
-
-cli.add_command(systems)
-cli.add_command(counter)
-cli.add_command(rekey)
-cli.add_command(doors)
-cli.add_command(keyways)
-cli.add_command(stock)
-cli.add_command(boxes)
-cli.add_command(phasing)
-cli.add_command(export)
-cli.add_command(annual)
-cli.add_command(stamping)
-cli.add_command(bring_in)
-cli.add_command(control)
+for group in GROUPS:
+    cli.add_command(group)
 
 
 def run(argv: list[str] | None = None) -> int:

@@ -227,3 +227,46 @@ def test_a_shop_with_nothing_in_it_answers_for_nothing(shop):
     found = call(shop, "check", "--on", "2025-06-30")
     assert found.exit_code == 0
     assert "nothing to answer for" in found.output
+
+
+def test_every_group_in_the_list_is_attached():
+    from hasplib.cli.main import GROUPS, cli
+
+    attached = set(cli.commands)
+    assert len(GROUPS) == 13
+    assert {group.name for group in GROUPS} <= attached
+
+
+def test_every_service_command_is_attached():
+    from hasplib.cli.main import cli
+    from hasplib.cli.service import COMMANDS
+
+    assert {command.name for command in COMMANDS} <= set(cli.commands)
+
+
+def test_no_group_is_listed_twice():
+    from hasplib.cli.main import GROUPS
+
+    names = [group.name for group in GROUPS]
+    assert len(names) == len(set(names))
+
+
+def test_the_groups_are_in_name_order():
+    from hasplib.cli.main import GROUPS
+
+    names = [group.name for group in GROUPS]
+    assert names == sorted(names)
+
+
+def test_the_help_lists_every_group(shop):
+    output = call(shop, "--help").output
+    from hasplib.cli.main import GROUPS
+
+    for group in GROUPS:
+        assert group.name in output
+
+
+def test_the_version_option_prints_the_version(shop):
+    from hasplib import __version__
+
+    assert __version__ in call(shop, "--version").output
