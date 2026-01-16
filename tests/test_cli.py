@@ -233,7 +233,7 @@ def test_every_group_in_the_list_is_attached():
     from hasplib.cli.main import GROUPS, cli
 
     attached = set(cli.commands)
-    assert len(GROUPS) == 13
+    assert len(GROUPS) == 14
     assert {group.name for group in GROUPS} <= attached
 
 
