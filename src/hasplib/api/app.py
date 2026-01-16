@@ -6,9 +6,9 @@ means a route never writes a status code by hand, and the shape of an error
 body is the same wherever it came from: the code, the message, and the facts
 that produced it.
 
-The status map is deliberately small. Not found is a 404, a conflict is a
-409, bad input is a 422, and everything else is a 400, because a client that
-gets a 500 from a business rule has been told the wrong thing.
+The status comes off the refusal catalogue rather than a map declared here.
+There were two maps for a while, one in this file and one in the interface
+note, and they disagreed about what a capacity refusal is.
 """
 
 from __future__ import annotations
@@ -21,32 +21,10 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from hasplib import __version__
-from hasplib.errors import (
-    CapacityError,
-    ConflictError,
-    HaspError,
-    InputError,
-    NotFoundError,
-)
+from hasplib.catalogue import status_for
+from hasplib.errors import HaspError
 from hasplib.persistence.engine import build_sessions
 from hasplib.settings import ShopSettings, from_env
-
-STATUS = {
-    NotFoundError: 404,
-    ConflictError: 409,
-    InputError: 422,
-    CapacityError: 409,
-}
-DEFAULT_STATUS = 400
-
-
-def status_for(error: HaspError) -> int:
-    """The status one refusal gets, by the closest class that names one."""
-    for kind in type(error).__mro__:
-        found = STATUS.get(kind)  # type: ignore[arg-type]
-        if found is not None:
-            return found
-    return DEFAULT_STATUS
 
 
 class Shop:
@@ -82,6 +60,22 @@ def build_app(engine: Engine, settings: ShopSettings | None = None) -> FastAPI:
     @app.exception_handler(HaspError)
     async def refused(request: Request, error: HaspError) -> JSONResponse:
         return JSONResponse(status_code=status_for(error), content=error.as_dict())
+
+    @app.get("/refusals", tags=["service"])
+    def refusals() -> dict[str, list[dict[str, object]]]:
+        from hasplib.catalogue import CATALOGUE
+
+        return {
+            "refusals": [
+                {
+                    "code": item.code,
+                    "status": item.status,
+                    "meaning": item.meaning,
+                    "retry": item.retry,
+                }
+                for item in CATALOGUE
+            ]
+        }
 
     @app.get("/settings", tags=["service"])
     def settings_lines() -> dict[str, list[str]]:
