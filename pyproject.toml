@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hasplib"
-version = "0.1.0"
+version = "1.0.0"
 description = "Key control and master key system design for the campus lock shop"
 readme = "README.md"
 requires-python = ">=3.11"

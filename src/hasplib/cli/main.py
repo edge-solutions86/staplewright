@@ -36,6 +36,7 @@ from hasplib.cli.imports import bring_in
 from hasplib.cli.keyways import keyways
 from hasplib.cli.phasing import phasing
 from hasplib.cli.rekey import rekey
+from hasplib.cli.release import release
 from hasplib.cli.reports import reports
 from hasplib.cli.stamping import stamping
 from hasplib.cli.stock import stock
@@ -56,6 +57,7 @@ GROUPS: Sequence[click.Group] = (
     keyways,
     phasing,
     rekey,
+    release,
     reports,
     annual,
     stamping,
