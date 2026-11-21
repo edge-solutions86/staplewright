@@ -48,15 +48,19 @@ public final class Main implements Common.Sessions {
     /** The variable that names the database when {@code --database} does not. */
     public static final String DATABASE_VARIABLE = Settings.PREFIX + "DATABASE";
 
-    /**
-     * Every command and group, in the order the help lists them. The two groups whose names are
-     * reserved words, {@code import} and {@code return}, are sorted by the name a person types.
-     */
+    /** The commands that hang off the root rather than off a group. */
     public static final List<Class<?>> COMMANDS = List.of(
             ServiceCommands.Build.class,
             ServiceCommands.ShowSettings.class,
             ServiceCommands.Tables.class,
-            ReleaseCommands.class);
+            ServiceCommands.Check.class);
+
+    /**
+     * Every command group, in the order the help lists them: sorted by the name a person types,
+     * which for the handover group is {@code import} and for the annual return group is {@code
+     * return}.
+     */
+    public static final List<Class<?>> GROUPS = List.of(ReleaseCommands.class, SystemCommands.class);
 
     private final Terminal terminal;
 
@@ -94,6 +98,9 @@ public final class Main implements Common.Sessions {
     static CommandLine commandLine(Main main) {
         CommandLine command = new CommandLine(main);
         for (Class<?> each : COMMANDS) {
+            command.addSubcommand(each);
+        }
+        for (Class<?> each : GROUPS) {
             command.addSubcommand(each);
         }
         return command.setExpandAtFiles(false)
