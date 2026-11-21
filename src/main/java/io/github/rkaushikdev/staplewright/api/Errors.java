@@ -69,7 +69,7 @@ public class Errors {
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<Map<String, Object>> mismatched(MethodArgumentTypeMismatchException failure) {
-        String root = failure.getParameter().hasParameterAnnotation(PathVariable.class) ? "path" : "query";
+        String root = failure.getParameter().getParameterAnnotation(PathVariable.class) != null ? "path" : "query";
         Throwable cause = failure.getMostSpecificCause();
         String why = cause instanceof StaplewrightError refusal ? refusal.message() : "the value could not be read";
         return unprocessable(List.of(problem(List.of(root, failure.getName()), why, "invalid")));
