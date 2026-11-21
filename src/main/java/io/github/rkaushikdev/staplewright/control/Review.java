@@ -35,7 +35,7 @@ public final class Review implements Iterable<ReviewLine> {
     private final LocalDate dueOn;
     private ReviewState state = ReviewState.OPEN;
     private Optional<LocalDate> closedOn = Optional.empty();
-    private final Registry<ReviewLine> lines = new Registry<>("review line", "tag");
+    private final Registry<ReviewLine> listed = new Registry<>("review line", "tag");
 
     /**
      * Open a review of one department, due back on {@code dueOn}.
@@ -86,10 +86,10 @@ public final class Review implements Iterable<ReviewLine> {
         int added = 0;
         for (Keyholder person : ledger.directory().inDepartment(department)) {
             for (IssuedKey key : ledger.heldBy(person.identifier())) {
-                if (lines.has(key.tag())) {
+                if (listed.has(key.tag())) {
                     continue;
                 }
-                lines.add(key.tag(), new ReviewLine(key.tag(), key.keyholder(), key.symbol()));
+                listed.add(key.tag(), new ReviewLine(key.tag(), key.keyholder(), key.symbol()));
                 added++;
             }
         }
@@ -102,12 +102,12 @@ public final class Review implements Iterable<ReviewLine> {
      * @throws NotFoundError when the key is not on the list
      */
     public ReviewLine line(String tag) {
-        return lines.get(tag);
+        return listed.get(tag);
     }
 
     /** Put a line back as it was stored, answer and all. */
     public ReviewLine load(ReviewLine line) {
-        return lines.put(line.tag(), line);
+        return listed.put(line.tag(), line);
     }
 
     /**
@@ -133,7 +133,7 @@ public final class Review implements Iterable<ReviewLine> {
      */
     public ReviewLine answer(String tag, Answer answer, LocalDate when, String note) {
         Lifecycle.requireState(state, List.of(ReviewState.OPEN), "that review is closed", Facts.of("tag", tag));
-        ReviewLine line = lines.get(tag);
+        ReviewLine line = listed.get(tag);
         if (answer == Answer.UNANSWERED) {
             throw new InputError("an answer says something", Facts.of("tag", tag));
         }
@@ -142,7 +142,7 @@ public final class Review implements Iterable<ReviewLine> {
                     "that key has already been answered",
                     Facts.of("tag", tag, "answer", line.answer().value()));
         }
-        return lines.put(tag, line.answered(answer, when, note));
+        return listed.put(tag, line.answered(answer, when, note));
     }
 
     /** Close the review. It closes once and takes no answers after. */
@@ -164,7 +164,7 @@ public final class Review implements Iterable<ReviewLine> {
 
     /** Every line, in tag order. */
     public List<ReviewLine> lines() {
-        return lines.byKey();
+        return listed.byKey();
     }
 
     public List<ReviewLine> confirmed() {
@@ -210,7 +210,7 @@ public final class Review implements Iterable<ReviewLine> {
 
     /** Whether a key with this tag is on the list. */
     public boolean contains(String tag) {
-        return lines.has(tag);
+        return listed.has(tag);
     }
 
     /** Every line, in tag order. */
@@ -220,7 +220,7 @@ public final class Review implements Iterable<ReviewLine> {
     }
 
     public int size() {
-        return lines.size();
+        return listed.size();
     }
 
     /** Departments whose reviews are open, overdue and still owe answers, in department order. */
