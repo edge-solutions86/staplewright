@@ -8,6 +8,7 @@ import io.github.rkaushikdev.staplewright.campus.OpeningSchedule;
 import io.github.rkaushikdev.staplewright.util.Text;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,6 +59,19 @@ public final class Imports {
             rows.add(row);
         }
         return new Parsed(header, rows);
+    }
+
+    /** The column names on the first line of a file, as written; empty for an empty file. */
+    public static List<String> header(String text) {
+        return List.copyOf(parse(text).header());
+    }
+
+    /**
+     * Every row after the first line, each keyed by column name, blank lines left out. A row shorter
+     * than the header has no value at all for the columns it stops short of.
+     */
+    public static List<Map<String, String>> rows(String text) {
+        return parse(text).rows().stream().map(Collections::unmodifiableMap).toList();
     }
 
     private static String cell(Map<String, String> row, String column) {
