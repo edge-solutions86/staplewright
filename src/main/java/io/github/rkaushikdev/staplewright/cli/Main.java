@@ -67,6 +67,7 @@ public final class Main implements Common.Sessions {
             DoorCommands.class,
             ExportCommands.class,
             ImportCommands.class,
+            KeywayCommands.class,
             PhasingCommands.class,
             RekeyCommands.class,
             ReleaseCommands.class,
