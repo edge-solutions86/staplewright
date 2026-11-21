@@ -35,7 +35,14 @@ public final class Rows {
             KeyedAlikeMemberRow.class,
             LockoutRow.class,
             SurveyRow.class,
-            SurveyLineRow.class);
+            SurveyLineRow.class,
+            IncidentRow.class,
+            WorkOrderRow.class,
+            WorkOrderLineRow.class,
+            RetiredBittingRow.class,
+            StockLineRow.class,
+            PurchaseOrderRow.class,
+            PurchaseLineRow.class);
 
     private Rows() {}
 }
