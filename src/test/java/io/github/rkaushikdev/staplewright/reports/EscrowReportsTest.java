@@ -8,6 +8,9 @@ import io.github.rkaushikdev.staplewright.control.KeyBox;
 import io.github.rkaushikdev.staplewright.control.OpenedBy;
 import io.github.rkaushikdev.staplewright.keys.KeySymbol;
 import io.github.rkaushikdev.staplewright.persistence.models.SealRow;
+import io.github.rkaushikdev.staplewright.support.Cli;
+import io.github.rkaushikdev.staplewright.support.DbCampus;
+import io.github.rkaushikdev.staplewright.support.TestDatabase;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
@@ -192,5 +195,177 @@ class EscrowReportsTest {
     void aFoundKeyNamesTheBoxesItBelongsTo() {
         List<String> lines = EscrowPages.keyFound(aRegister(), "AA1");
         assertThat(lines.get(0)).isEqualTo("2 boxes hold AA1");
+    }
+
+    /** The whole campus written down, for the box commands to work on. */
+    private static void shop() {
+        TestDatabase.fresh().inSession(DbCampus::build);
+    }
+
+    private static Cli.Result call(String... args) {
+        return Cli.onTestDatabase(args);
+    }
+
+    private static Cli.Result putUp() {
+        return call("boxes", "install", "KB-01", "MOO", "MOO-101", "AA1", "44012", "--on", "2025-01-06");
+    }
+
+    @Test
+    void aBoxGoesUpFromTheCommandLine() {
+        shop();
+        assertThat(putUp().output().strip()).isEqualTo("KB-01 sealed on MOO-101 with AA1");
+    }
+
+    @Test
+    void aMasterIsRefusedFromTheCommandLine() {
+        shop();
+        assertThat(call("boxes", "install", "KB-01", "MOO", "MOO-101", "A", "44012", "--on", "2025-01-06")
+                        .exitCode())
+                .isNotZero();
+    }
+
+    @Test
+    void readingTheRightSealSaysStillSealed() {
+        shop();
+        putUp();
+        assertThat(call("boxes", "check", "KB-01", "44012", "--on", "2025-06-30")
+                        .output()
+                        .strip())
+                .isEqualTo("KB-01 still sealed on 44012");
+    }
+
+    @Test
+    void readingTheWrongSealSaysItWasOpened() {
+        shop();
+        putUp();
+        String output =
+                call("boxes", "check", "KB-01", "44099", "--on", "2025-06-30").output();
+        assertThat(output).contains("has been opened").contains("expected 44012");
+    }
+
+    @Test
+    void reportingAnOpeningNamesWho() {
+        shop();
+        putUp();
+        assertThat(call("boxes", "opened", "KB-01", "--by", "fire service", "--on", "2025-06-30")
+                        .output()
+                        .strip())
+                .isEqualTo("KB-01 open, fire service");
+    }
+
+    @Test
+    void anOpenerNobodyRecognisesIsRejectedAsUnreadable() {
+        shop();
+        putUp();
+        assertThat(call("boxes", "opened", "KB-01", "--by", "the caretaker").exitCode())
+                .isNotZero();
+    }
+
+    @Test
+    void anOpenBoxCanBeEmptied() {
+        shop();
+        putUp();
+        call("boxes", "opened", "KB-01", "--on", "2025-06-30");
+        assertThat(call("boxes", "empty", "KB-01", "--on", "2025-12-01")
+                        .output()
+                        .strip())
+                .isEqualTo("KB-01 empty");
+    }
+
+    @Test
+    void resealingSaysWhatWentIn() {
+        shop();
+        putUp();
+        call("boxes", "opened", "KB-01", "--on", "2025-06-30");
+        assertThat(call("boxes", "reseal", "KB-01", "44120", "AA2", "--on", "2025-12-01")
+                        .output()
+                        .strip())
+                .isEqualTo("KB-01 sealed on 44120 with AA2");
+    }
+
+    @Test
+    void withdrawingTakesItOffTheWall() {
+        shop();
+        putUp();
+        assertThat(call("boxes", "withdraw", "KB-01", "building came down", "--on", "2025-12-01")
+                        .output()
+                        .strip())
+                .isEqualTo("KB-01 off the wall");
+    }
+
+    @Test
+    void theSealsCommandShowsTheHistory() {
+        shop();
+        putUp();
+        call("boxes", "opened", "KB-01", "--on", "2025-06-30");
+        call("boxes", "reseal", "KB-01", "44120", "AA2", "--on", "2025-12-01");
+        List<String> lines =
+                call("boxes", "seals", "KB-01", "--on", "2025-12-01").lines();
+        assertThat(lines.get(0)).startsWith("seal");
+        assertThat(lines.get(1)).startsWith("44012");
+        assertThat(lines.get(2)).contains("on now");
+    }
+
+    @Test
+    void whichKeyWasInItOnADay() {
+        shop();
+        putUp();
+        assertThat(call("boxes", "key-on", "KB-01", "2025-03-01").output().strip())
+                .isEqualTo("AA1");
+    }
+
+    @Test
+    void aDayBeforeTheBoxWentUpHasNothingInIt() {
+        shop();
+        putUp();
+        assertThat(call("boxes", "key-on", "KB-01", "2024-01-01").output().strip())
+                .isEqualTo("nothing was in it");
+    }
+
+    @Test
+    void theOpenCommandIsQuietWhenEverythingIsSealed() {
+        shop();
+        putUp();
+        assertThat(call("boxes", "open").output()).contains("every box is sealed");
+    }
+
+    @Test
+    void theOpenCommandNamesTheLooseKey() {
+        shop();
+        putUp();
+        call("boxes", "opened", "KB-01", "--on", "2025-06-30");
+        assertThat(call("boxes", "open", "--on", "2025-12-01").output()).contains("keys loose: AA1");
+    }
+
+    @Test
+    void theWalkListNamesWhatToReseal() {
+        shop();
+        putUp();
+        call("boxes", "opened", "KB-01", "--on", "2025-06-30");
+        assertThat(call("boxes", "walk", "--on", "2025-12-01").output()).contains("1 to reseal");
+    }
+
+    @Test
+    void theCoverageSheetIsSafeToHandOver() {
+        shop();
+        putUp();
+        String output = call("boxes", "coverage").output();
+        assertThat(output).contains("MOO").doesNotContain("AA1");
+    }
+
+    @Test
+    void aFoundKeyIsTracedToItsBoxes() {
+        shop();
+        putUp();
+        assertThat(call("boxes", "found", "AA1").output()).contains("1 boxes hold AA1");
+    }
+
+    @Test
+    void theShopReportPrintsTopToBottom() {
+        shop();
+        putUp();
+        List<String> lines = call("boxes", "report", "--on", "2025-12-01").lines();
+        assertThat(lines.get(0)).isEqualTo("key boxes at 2025-12-01, 1 on record");
+        assertThat(lines.get(1)).isEqualTo("1 sealed");
     }
 }
