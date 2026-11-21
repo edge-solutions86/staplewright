@@ -3,6 +3,7 @@ package io.github.rkaushikdev.staplewright.cli;
 import io.github.rkaushikdev.staplewright.health.Finding;
 import io.github.rkaushikdev.staplewright.health.Health;
 import io.github.rkaushikdev.staplewright.persistence.Schema;
+import io.github.rkaushikdev.staplewright.persistence.Seed;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -66,6 +67,32 @@ final class ServiceCommands {
         @Override
         public Integer call() {
             Common.echoLines(main.terminal().out(), Schema.tableNames());
+            return Main.OK;
+        }
+    }
+
+    /** Build the tables and fill them with a worked example campus. */
+    @Command(
+            name = "demo",
+            mixinStandardHelpOptions = true,
+            description = "Build the tables and fill them with a worked example campus.")
+    static final class Demo implements Callable<Integer> {
+
+        @ParentCommand
+        private Main main;
+
+        @Option(names = Common.DAY, converter = Common.DayConverter.class, description = Common.DAY_HELP)
+        private Optional<LocalDateTime> day = Optional.empty();
+
+        @Override
+        public Integer call() {
+            LocalDate today = Common.asDay(day);
+            main.database().migrate();
+            main.inSession(session -> Seed.seed(session, today));
+            main.terminal().out().println("demo campus written to " + main.url());
+            Common.echoLines(
+                    main.terminal().out(),
+                    Seed.summary().stream().map(line -> "  " + line).toList());
             return Main.OK;
         }
     }

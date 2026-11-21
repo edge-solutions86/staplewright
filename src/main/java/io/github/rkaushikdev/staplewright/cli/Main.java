@@ -53,6 +53,7 @@ public final class Main implements Common.Sessions {
             ServiceCommands.Build.class,
             ServiceCommands.ShowSettings.class,
             ServiceCommands.Tables.class,
+            ServiceCommands.Demo.class,
             ServiceCommands.Check.class);
 
     /**
