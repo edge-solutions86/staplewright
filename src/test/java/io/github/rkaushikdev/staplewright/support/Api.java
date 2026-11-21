@@ -118,7 +118,7 @@ public final class Api {
         String query = params.entrySet().stream()
                 .map(entry -> encode(entry.getKey()) + "=" + encode(String.valueOf(entry.getValue())))
                 .collect(Collectors.joining("&"));
-        return URI.create(base + path + (query.isEmpty() ? "" : "?" + query));
+        return URI.create(base + path.replace(" ", "%20") + (query.isEmpty() ? "" : "?" + query));
     }
 
     private static String encode(String text) {
