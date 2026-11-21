@@ -62,7 +62,7 @@ public final class Main implements Common.Sessions {
      * return}.
      */
     public static final List<Class<?>> GROUPS =
-            List.of(ReleaseCommands.class, ReportCommands.class, StockCommands.class, SystemCommands.class);
+            List.of(CounterCommands.class, ReleaseCommands.class, ReportCommands.class, StockCommands.class, SystemCommands.class);
 
     private final Terminal terminal;
 
