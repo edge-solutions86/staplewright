@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.github.rkaushikdev.staplewright.KeywayError;
 import io.github.rkaushikdev.staplewright.NotFoundError;
 import io.github.rkaushikdev.staplewright.campus.OpeningSchedule;
+import io.github.rkaushikdev.staplewright.rekey.Cause;
+import io.github.rkaushikdev.staplewright.services.IncidentService;
 import io.github.rkaushikdev.staplewright.settings.ShopSettings;
 import io.github.rkaushikdev.staplewright.spec.CuttingRules;
 import io.github.rkaushikdev.staplewright.support.DbCampus;
@@ -170,5 +172,26 @@ class WorkspaceTest {
         assertThat(space.quarantineYears()).isEqualTo(7);
         assertThat(space.rules().maxRun())
                 .isEqualTo(new ShopSettings().cutting().maxRun());
+    }
+
+    @Test
+    void theIncidentServiceHoldsOneCoverageMap() {
+        IncidentService service = new IncidentService(session);
+        assertThat(service.coverage()).isSameAs(service.coverage());
+    }
+
+    @Test
+    void theIncidentServiceDoesNotHoldTheLedger() {
+        IncidentService service = new IncidentService(session);
+        assertThat(service.ledger()).isNotSameAs(service.ledger());
+    }
+
+    @Test
+    void aClosedKeyIsGoneFromTheNextLedgerRead() {
+        IncidentService service = new IncidentService(session);
+        service.openSeries();
+        int before = service.ledger().out().size();
+        service.report("41207", Cause.LOST, LocalDate.of(2025, 6, 30));
+        assertThat(service.ledger().out()).hasSize(before - 1);
     }
 }
