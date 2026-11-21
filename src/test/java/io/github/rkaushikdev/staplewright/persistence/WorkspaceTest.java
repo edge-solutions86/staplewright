@@ -7,6 +7,7 @@ import io.github.rkaushikdev.staplewright.KeywayError;
 import io.github.rkaushikdev.staplewright.NotFoundError;
 import io.github.rkaushikdev.staplewright.campus.OpeningSchedule;
 import io.github.rkaushikdev.staplewright.rekey.Cause;
+import io.github.rkaushikdev.staplewright.services.ExportService;
 import io.github.rkaushikdev.staplewright.services.IncidentService;
 import io.github.rkaushikdev.staplewright.settings.ShopSettings;
 import io.github.rkaushikdev.staplewright.spec.CuttingRules;
@@ -193,5 +194,28 @@ class WorkspaceTest {
         int before = service.ledger().out().size();
         service.report("41207", Cause.LOST, LocalDate.of(2025, 6, 30));
         assertThat(service.ledger().out()).hasSize(before - 1);
+    }
+
+    @Test
+    void theExportServiceTakesAWorkspace() {
+        Workspace space = new Workspace(session);
+        ExportService service = new ExportService(session, space);
+        service.rowsFor("openings");
+        assertThat(space.loaded()).contains("openings");
+    }
+
+    @Test
+    void twoExportsShareTheOpenings() {
+        Workspace space = new Workspace(session);
+        ExportService service = new ExportService(session, space);
+        service.rowsFor("openings");
+        service.rowsFor("cylinders");
+        assertThat(space.loaded()).containsOnlyOnce("openings");
+    }
+
+    @Test
+    void anExportServiceMakesItsOwnWorkspaceWhenItHasTo() {
+        ExportService service = new ExportService(session);
+        assertThat(service.rowsFor("openings").rows()).isNotEmpty();
     }
 }
