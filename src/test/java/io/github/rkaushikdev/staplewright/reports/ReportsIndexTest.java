@@ -4,8 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.rkaushikdev.staplewright.NotFoundError;
+import io.github.rkaushikdev.staplewright.persistence.Database;
+import io.github.rkaushikdev.staplewright.support.Cli;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -13,6 +16,13 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 class ReportsIndexTest {
+
+    /** One command line against an empty database of its own, which none of these commands open. */
+    private static Cli.Result call(String... args) {
+        List<String> all = new ArrayList<>(List.of("--database", Database.MEMORY + "reports-index"));
+        all.addAll(List.of(args));
+        return Cli.call(all.toArray(String[]::new));
+    }
 
     @Test
     void everyPageOnTheIndexIsARealFunction() {
@@ -135,5 +145,51 @@ class ReportsIndexTest {
     void theModulesComeBackInOrder() {
         assertThat(ReportIndex.everyModule()).isEqualTo(ReportIndex.MODULES);
         assertThat(ReportIndex.MODULES).isSorted();
+    }
+
+    @Test
+    void theBareCommandPrintsTheWholeIndex() {
+        List<String> lines = call("reports").lines();
+        assertThat(lines.get(0)).isEqualTo(ReportIndex.PAGES.size() + " reports");
+    }
+
+    @Test
+    void theModuleCommandNarrowsIt() {
+        List<String> lines = call("reports", "module", "stock").lines();
+        assertThat(lines.get(0)).isEqualTo(ReportIndex.forModule("stock").size() + " reports");
+    }
+
+    @Test
+    void theModulesCommandListsThem() {
+        assertThat(call("reports", "modules").lines()).isEqualTo(ReportIndex.MODULES);
+    }
+
+    @Test
+    void theForCommandListsOneReadersPages() {
+        assertThat(call("reports", "for", "bench").output()).contains("cylinder_chart");
+    }
+
+    @Test
+    void theReadersCommandListsThem() {
+        assertThat(call("reports", "readers").lines()).contains("bench");
+    }
+
+    @Test
+    void theFindCommandSaysWhereAPageLives() {
+        List<String> lines = call("reports", "find", "survey_report").lines();
+        assertThat(lines.get(0)).isEqualTo("staplewright.reports.survey.survey_report");
+        assertThat(lines.get(1)).contains("asked for by management");
+    }
+
+    @Test
+    void findingAPageNobodyPrintsIsRefused() {
+        assertThat(call("reports", "find", "payroll_summary").exitCode()).isNotZero();
+    }
+
+    @Test
+    void nothingIsUnlisted() {
+        Cli.Result found = call("reports", "unlisted");
+        assertThat(found.output().strip()).isEqualTo("every report is on the index");
+        assertThat(found.exitCode()).isZero();
     }
 }
