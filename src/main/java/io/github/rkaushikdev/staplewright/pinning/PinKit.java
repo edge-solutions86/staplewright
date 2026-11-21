@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * The cabinet at the bench, counted.
@@ -101,20 +102,17 @@ public final class PinKit {
 
     /** Lengths of one kind the cabinet has any of, shallow to deep, whatever their profile. */
     public List<Integer> lengths(SegmentKind kind) {
-        return stock.entrySet().stream()
-                .filter(entry -> entry.getKey().kind() == kind && entry.getValue() > 0)
-                .map(entry -> entry.getKey().lengthMils())
-                .distinct()
-                .sorted()
-                .toList();
+        return lengthsOf(segment -> segment.kind() == kind);
     }
 
     /** Lengths of one kind and one profile the cabinet has any of, shallow to deep. */
     public List<Integer> lengths(SegmentKind kind, DriverProfile profile) {
+        return lengthsOf(segment -> segment.kind() == kind && segment.profile() == profile);
+    }
+
+    private List<Integer> lengthsOf(Predicate<PinSegment> wanted) {
         return stock.entrySet().stream()
-                .filter(entry -> entry.getKey().kind() == kind
-                        && entry.getValue() > 0
-                        && entry.getKey().profile() == profile)
+                .filter(entry -> entry.getValue() > 0 && wanted.test(entry.getKey()))
                 .map(entry -> entry.getKey().lengthMils())
                 .distinct()
                 .sorted()
