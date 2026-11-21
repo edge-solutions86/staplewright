@@ -40,4 +40,16 @@ public record BoxPolicy(int lowestLevel, int checkDays, int resealDays) {
     public boolean allows(KeySymbol symbol) {
         return symbol.level() >= lowestLevel;
     }
+
+    public BoxPolicy withLowestLevel(int value) {
+        return new BoxPolicy(value, checkDays, resealDays);
+    }
+
+    public BoxPolicy withCheckDays(int value) {
+        return new BoxPolicy(lowestLevel, value, resealDays);
+    }
+
+    public BoxPolicy withResealDays(int value) {
+        return new BoxPolicy(lowestLevel, checkDays, value);
+    }
 }
