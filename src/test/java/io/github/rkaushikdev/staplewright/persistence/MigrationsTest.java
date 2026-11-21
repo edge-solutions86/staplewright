@@ -39,10 +39,13 @@ class MigrationsTest {
 
     /**
      * What the migrations hold that no row maps, by table: the column behind the one open claim per
-     * key rule, which a unique index over that column enforces.
+     * key rule, which a unique index over that column enforces, and the unique constraint a filed
+     * return carries on its year beside the primary key on the same column, which the mapping names
+     * but never builds because the key already makes the year unique.
      */
-    private static final Map<String, Set<String>> MIGRATION_ONLY =
-            Map.of("key_transfers", Set.of("tag_while_claimed", "ux_key_transfers_one_open_claim"));
+    private static final Map<String, Set<String>> MIGRATION_ONLY = Map.of(
+            "key_transfers", Set.of("tag_while_claimed", "ux_key_transfers_one_open_claim"),
+            "annual_returns", Set.of("uq_annual_returns_year"));
 
     private Database migrated;
 

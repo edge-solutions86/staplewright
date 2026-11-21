@@ -42,7 +42,15 @@ public final class Rows {
             RetiredBittingRow.class,
             StockLineRow.class,
             PurchaseOrderRow.class,
-            PurchaseLineRow.class);
+            PurchaseLineRow.class,
+            AnnualReturnRow.class,
+            AuditEntryRow.class,
+            KeyBoxRow.class,
+            SealRow.class,
+            ControlKeyRow.class,
+            CoreRow.class,
+            BlindCodeRow.class,
+            TransferRow.class);
 
     private Rows() {}
 }
