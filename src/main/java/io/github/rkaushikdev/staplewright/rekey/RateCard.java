@@ -53,4 +53,130 @@ public record RateCard(
     public RateCard() {
         this(12, 20, 2, 3, 25, 5200, 180, 12, 12);
     }
+
+    /** The same card with {@code benchMinutesPerCylinder} changed. */
+    public RateCard withBenchMinutesPerCylinder(int value) {
+        return new RateCard(
+                value,
+                doorMinutesPerCylinder,
+                coreDoorMinutes,
+                keyCutMinutes,
+                travelMinutesPerBuilding,
+                labourCentsPerHour,
+                blankCents,
+                pinCents,
+                pinsPerCylinder);
+    }
+
+    /** The same card with {@code doorMinutesPerCylinder} changed. */
+    public RateCard withDoorMinutesPerCylinder(int value) {
+        return new RateCard(
+                benchMinutesPerCylinder,
+                value,
+                coreDoorMinutes,
+                keyCutMinutes,
+                travelMinutesPerBuilding,
+                labourCentsPerHour,
+                blankCents,
+                pinCents,
+                pinsPerCylinder);
+    }
+
+    /** The same card with {@code coreDoorMinutes} changed. */
+    public RateCard withCoreDoorMinutes(int value) {
+        return new RateCard(
+                benchMinutesPerCylinder,
+                doorMinutesPerCylinder,
+                value,
+                keyCutMinutes,
+                travelMinutesPerBuilding,
+                labourCentsPerHour,
+                blankCents,
+                pinCents,
+                pinsPerCylinder);
+    }
+
+    /** The same card with {@code keyCutMinutes} changed. */
+    public RateCard withKeyCutMinutes(int value) {
+        return new RateCard(
+                benchMinutesPerCylinder,
+                doorMinutesPerCylinder,
+                coreDoorMinutes,
+                value,
+                travelMinutesPerBuilding,
+                labourCentsPerHour,
+                blankCents,
+                pinCents,
+                pinsPerCylinder);
+    }
+
+    /** The same card with {@code travelMinutesPerBuilding} changed. */
+    public RateCard withTravelMinutesPerBuilding(int value) {
+        return new RateCard(
+                benchMinutesPerCylinder,
+                doorMinutesPerCylinder,
+                coreDoorMinutes,
+                keyCutMinutes,
+                value,
+                labourCentsPerHour,
+                blankCents,
+                pinCents,
+                pinsPerCylinder);
+    }
+
+    /** The same card with {@code labourCentsPerHour} changed. */
+    public RateCard withLabourCentsPerHour(int value) {
+        return new RateCard(
+                benchMinutesPerCylinder,
+                doorMinutesPerCylinder,
+                coreDoorMinutes,
+                keyCutMinutes,
+                travelMinutesPerBuilding,
+                value,
+                blankCents,
+                pinCents,
+                pinsPerCylinder);
+    }
+
+    /** The same card with {@code blankCents} changed. */
+    public RateCard withBlankCents(int value) {
+        return new RateCard(
+                benchMinutesPerCylinder,
+                doorMinutesPerCylinder,
+                coreDoorMinutes,
+                keyCutMinutes,
+                travelMinutesPerBuilding,
+                labourCentsPerHour,
+                value,
+                pinCents,
+                pinsPerCylinder);
+    }
+
+    /** The same card with {@code pinCents} changed. */
+    public RateCard withPinCents(int value) {
+        return new RateCard(
+                benchMinutesPerCylinder,
+                doorMinutesPerCylinder,
+                coreDoorMinutes,
+                keyCutMinutes,
+                travelMinutesPerBuilding,
+                labourCentsPerHour,
+                blankCents,
+                value,
+                pinsPerCylinder);
+    }
+
+    /** The same card with {@code pinsPerCylinder} changed. */
+    public RateCard withPinsPerCylinder(int value) {
+        return new RateCard(
+                benchMinutesPerCylinder,
+                doorMinutesPerCylinder,
+                coreDoorMinutes,
+                keyCutMinutes,
+                travelMinutesPerBuilding,
+                labourCentsPerHour,
+                blankCents,
+                pinCents,
+                value);
+    }
 }
