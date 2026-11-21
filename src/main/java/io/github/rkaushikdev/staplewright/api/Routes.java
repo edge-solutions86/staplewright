@@ -19,6 +19,7 @@ public final class Routes {
             DoorRoutes.class,
             IncidentRoutes.class,
             KeyRoutes.class,
+            PinningRoutes.class,
             ReportRoutes.class,
             StampingRoutes.class,
             StockRoutes.class,
