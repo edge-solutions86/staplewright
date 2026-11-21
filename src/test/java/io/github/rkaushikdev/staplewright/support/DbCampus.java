@@ -75,8 +75,11 @@ public final class DbCampus {
         return Collections.unmodifiableMap(cuts);
     }
 
-    /** Write the whole campus down and hand back the keying system. */
-    public static SystemRow build(Session session) {
+    /**
+     * The six pin chart and the campus keyway family, written down with nothing else: what a keying
+     * system needs before it can be opened. Hands back the chart's row.
+     */
+    public static ChartRow chartAndFamily(Session session) {
         ChartRow chart = ReferenceMappers.chartToRow(Charts.sixPinChart());
         session.add(chart);
         session.flush();
@@ -94,6 +97,12 @@ public final class DbCampus {
             sections.put(code, row);
         }
         session.flush();
+        return chart;
+    }
+
+    /** Write the whole campus down and hand back the keying system. */
+    public static SystemRow build(Session session) {
+        ChartRow chart = chartAndFamily(session);
 
         SystemRow system = new SystemRow(SYSTEM, chart, "Sargent LA", "L");
         session.add(system);
