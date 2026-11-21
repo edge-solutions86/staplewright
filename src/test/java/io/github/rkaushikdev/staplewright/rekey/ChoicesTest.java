@@ -25,7 +25,10 @@ class ChoicesTest {
         return Stream.of(
                         each(Cause.class, Cause::fromValue, Cause::find),
                         each(OrderState.class, OrderState::fromValue, OrderState::find),
-                        each(LineState.class, LineState::fromValue, LineState::find))
+                        each(LineState.class, LineState::fromValue, LineState::find),
+                        each(RetirementReason.class, RetirementReason::fromValue, RetirementReason::find),
+                        each(WindowKind.class, WindowKind::fromValue, WindowKind::find),
+                        each(Restriction.class, Restriction::fromValue, Restriction::find))
                 .flatMap(choices -> choices);
     }
 
@@ -57,6 +60,18 @@ class ChoicesTest {
     void onlyAnInstalledOrSkippedLineIsSettled() {
         assertThat(LineState.SETTLED).containsExactlyInAnyOrder(LineState.INSTALLED, LineState.SKIPPED);
         assertThat(LineState.PINNED.isSettled()).isFalse();
+    }
+
+    @Test
+    void onlyACompromisedCutIsRetiredForGood() {
+        assertThat(RetirementReason.PERMANENT).containsExactly(RetirementReason.COMPROMISED);
+        assertThat(RetirementReason.SUPERSEDED.isPermanent()).isFalse();
+    }
+
+    @Test
+    void aRestrictionIsReadBackFromTheWordsThePlanPrints() {
+        assertThat(Restriction.fromValue("exams running")).isSameAs(Restriction.EXAMS);
+        assertThat(Restriction.find("EXAMS")).isEmpty();
     }
 
     @Test
