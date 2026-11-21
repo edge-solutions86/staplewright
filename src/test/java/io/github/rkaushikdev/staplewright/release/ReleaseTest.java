@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.rkaushikdev.staplewright.NotFoundError;
 import io.github.rkaushikdev.staplewright.Staplewright;
+import io.github.rkaushikdev.staplewright.support.Cli;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -154,5 +155,43 @@ class ReleaseTest {
         List<String> lines = Releases.describeCurrent();
         assertThat(lines.get(0)).startsWith(Releases.CURRENT.version());
         assertThat(lines).hasSize(Releases.CURRENT.notes().size() + 1);
+    }
+
+    private static Cli.Result call(String... args) {
+        java.util.List<String> all = new java.util.ArrayList<>(List.of("--database", "jdbc:h2:mem:release-commands"));
+        all.addAll(List.of(args));
+        return Cli.call(all.toArray(String[]::new));
+    }
+
+    @Test
+    void theVersionCommandPrintsTheHeadline() {
+        assertThat(call("release", "version").lines().get(0)).startsWith(Staplewright.VERSION);
+    }
+
+    @Test
+    void theHistoryCommandPrintsEveryRelease() {
+        assertThat(call("release", "history").lines()).hasSize(Releases.RELEASES.size() + 1);
+    }
+
+    @Test
+    void theUpgradeCommandNamesTheMigrations() {
+        assertThat(call("release", "upgrade", "0.6.0", "--to", "0.7.0").output())
+                .contains("2 migrations: 0005, 0006");
+    }
+
+    @Test
+    void theUpgradeCommandDefaultsToCurrent() {
+        assertThat(call("release", "upgrade", "0.9.0").output()).contains("to " + Releases.CURRENT.version());
+    }
+
+    @Test
+    void theUpgradeCommandRefusesADowngrade() {
+        assertThat(call("release", "upgrade", "1.0.0", "--to", "0.6.0").exitCode())
+                .isNotZero();
+    }
+
+    @Test
+    void theMigrationsCommandListsThemAll() {
+        assertThat(call("release", "migrations").lines()).isEqualTo(Releases.everyMigration());
     }
 }
