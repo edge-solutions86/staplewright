@@ -29,6 +29,11 @@ import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
  * migration. It builds one database from the migrations alone and one from the mapping alone, then
  * compares every mapped table column by column and constraint by constraint. Check constraints live
  * in the migrations only, so they are not compared.
+ *
+ * <p>The indexes compared are the ones somebody named. The database makes an index of its own to
+ * back a foreign key that no index covers yet, and whether it does depends only on whether the
+ * named index on that column was built before the key or after it, which the migrations and the
+ * mapping do in opposite orders. The key itself is compared either way.
  */
 class MigrationsTest {
 
@@ -124,6 +129,7 @@ class MigrationsTest {
                         join information_schema.index_columns c
                             on c.index_name = i.index_name and c.table_name = i.table_name
                         where i.table_schema = 'PUBLIC' and i.table_name = ? and i.index_type_name = 'INDEX'
+                            and not i.is_generated
                         group by i.index_name
                         """,
                         name));

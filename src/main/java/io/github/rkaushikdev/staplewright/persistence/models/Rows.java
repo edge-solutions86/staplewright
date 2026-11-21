@@ -18,7 +18,17 @@ public final class Rows {
             SystemRow.class,
             ScheduleEntryRow.class,
             GroupRow.class,
-            GroupMemberRow.class);
+            GroupMemberRow.class,
+            BuildingRow.class,
+            OpeningRow.class,
+            CylinderRow.class,
+            AccessGroupRow.class,
+            AccessRequirementRow.class,
+            KeyholderRow.class,
+            AuthorizerRow.class,
+            KeyRequestRow.class,
+            IssuedKeyRow.class,
+            DepositLineRow.class);
 
     private Rows() {}
 }
