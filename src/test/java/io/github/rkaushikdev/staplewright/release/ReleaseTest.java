@@ -5,12 +5,23 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.rkaushikdev.staplewright.NotFoundError;
 import io.github.rkaushikdev.staplewright.Staplewright;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 class ReleaseTest {
+
+    private static final Pattern MIGRATION = Pattern.compile("V(\\d+)__\\w+\\.sql");
 
     @Test
     void thePackageVersionIsTheLatestRelease() {
@@ -45,6 +56,20 @@ class ReleaseTest {
     @Test
     void theMigrationsAreShippedInOrder() {
         assertThat(Releases.everyMigration()).isSorted();
+    }
+
+    @Test
+    void everyMigrationOnDiskIsInARelease() throws IOException {
+        Path root = Path.of("src/main/resources/db/migration");
+        Set<String> onDisk;
+        try (Stream<Path> files = Files.list(root)) {
+            onDisk = files.filter(Files::isRegularFile)
+                    .map(path -> MIGRATION.matcher(path.getFileName().toString()))
+                    .filter(Matcher::matches)
+                    .map(match -> String.format(Locale.ROOT, "%04d", Integer.parseInt(match.group(1))))
+                    .collect(Collectors.toSet());
+        }
+        assertThat(onDisk).isNotEmpty().isEqualTo(Set.copyOf(Releases.everyMigration()));
     }
 
     @Test
