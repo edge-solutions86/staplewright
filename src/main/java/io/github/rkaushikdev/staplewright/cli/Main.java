@@ -54,7 +54,8 @@ public final class Main implements Common.Sessions {
             ServiceCommands.ShowSettings.class,
             ServiceCommands.Tables.class,
             ServiceCommands.Demo.class,
-            ServiceCommands.Check.class);
+            ServiceCommands.Check.class,
+            Serve.class);
 
     /**
      * Every command group, in the order the help lists them: sorted by the name a person types,

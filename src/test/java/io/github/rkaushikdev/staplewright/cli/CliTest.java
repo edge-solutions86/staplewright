@@ -3,14 +3,26 @@ package io.github.rkaushikdev.staplewright.cli;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.rkaushikdev.staplewright.Staplewright;
+import io.github.rkaushikdev.staplewright.persistence.Database;
 import io.github.rkaushikdev.staplewright.persistence.models.IssuedKeyRow;
 import io.github.rkaushikdev.staplewright.persistence.models.KeyholderRow;
 import io.github.rkaushikdev.staplewright.support.Cli;
 import io.github.rkaushikdev.staplewright.support.DbCampus;
 import io.github.rkaushikdev.staplewright.support.TestDatabase;
+import java.io.BufferedReader;
+import java.io.PrintWriter;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
@@ -217,14 +229,14 @@ class CliTest {
 
     @Test
     void everyGroupInTheListIsAttached() {
-        CommandLine root = Main.commandLine(new Main(io.github.rkaushikdev.staplewright.cli.Terminal.system()));
+        CommandLine root = Main.commandLine(new Main(Terminal.system()));
         assertThat(Main.GROUPS).hasSize(15);
         assertThat(root.getSubcommands().keySet()).containsAll(names(Main.GROUPS));
     }
 
     @Test
     void everyServiceCommandIsAttached() {
-        CommandLine root = Main.commandLine(new Main(io.github.rkaushikdev.staplewright.cli.Terminal.system()));
+        CommandLine root = Main.commandLine(new Main(Terminal.system()));
         assertThat(root.getSubcommands().keySet()).containsAll(names(Main.COMMANDS));
     }
 
@@ -249,5 +261,42 @@ class CliTest {
     @Test
     void theVersionOptionPrintsTheVersion() {
         assertThat(call("--version").output()).contains(Staplewright.VERSION);
+    }
+
+    @Test
+    void theServiceServesTheSameDatabaseUntilItIsStopped() throws Exception {
+        StringWriter printed = new StringWriter();
+        PrintWriter out = new PrintWriter(printed, true);
+        Terminal terminal = new Terminal(
+                name -> null, new BufferedReader(new StringReader("")), out, out, new Terminal.Databases() {
+                    @Override
+                    public Database open(String url) {
+                        return TestDatabase.database();
+                    }
+
+                    @Override
+                    public void release(Database database) {
+                        // The suite's database outlives every command.
+                    }
+                });
+        AtomicInteger code = new AtomicInteger(-1);
+        Thread serving = new Thread(() -> code.set(Main.run(terminal, "serve", "--port", "0")));
+        serving.start();
+        Pattern listening = Pattern.compile("on http://127\\.0\\.0\\.1:(\\d+)");
+        Matcher found = listening.matcher("");
+        for (int tries = 0; tries < 600 && !found.find(); tries++) {
+            Thread.sleep(100);
+            found = listening.matcher(printed.toString());
+        }
+        assertThat(printed.toString()).startsWith("serving " + "jdbc:h2:./staplewright");
+        HttpResponse<String> health = HttpClient.newHttpClient()
+                .send(
+                        HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + found.group(1) + "/health"))
+                                .build(),
+                        HttpResponse.BodyHandlers.ofString());
+        assertThat(health.statusCode()).isEqualTo(200);
+        serving.interrupt();
+        serving.join(30_000);
+        assertThat(code.get()).isZero();
     }
 }
