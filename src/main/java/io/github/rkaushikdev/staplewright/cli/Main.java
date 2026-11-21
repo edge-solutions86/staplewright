@@ -63,6 +63,7 @@ public final class Main implements Common.Sessions {
      */
     public static final List<Class<?>> GROUPS = List.of(
             BoxCommands.class,
+            ControlCommands.class,
             CounterCommands.class,
             DoorCommands.class,
             ExportCommands.class,
