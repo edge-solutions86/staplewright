@@ -32,7 +32,8 @@ class ChoicesTest {
                         each(ReviewState.class, ReviewState::fromValue, ReviewState::find),
                         each(Answer.class, Answer::fromValue, Answer::find),
                         each(BoxState.class, BoxState::fromValue, BoxState::find),
-                        each(OpenedBy.class, OpenedBy::fromValue, OpenedBy::find))
+                        each(OpenedBy.class, OpenedBy::fromValue, OpenedBy::find),
+                        each(TransferState.class, TransferState::fromValue, TransferState::find))
                 .flatMap(choices -> choices);
     }
 

@@ -23,4 +23,12 @@ public record TransferPolicy(int confirmDays, boolean allowMasterTransfer) {
     public TransferPolicy() {
         this(CONFIRM_DAYS, false);
     }
+
+    public TransferPolicy withConfirmDays(int value) {
+        return new TransferPolicy(value, allowMasterTransfer);
+    }
+
+    public TransferPolicy withAllowMasterTransfer(boolean value) {
+        return new TransferPolicy(confirmDays, value);
+    }
 }
