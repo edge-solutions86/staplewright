@@ -50,7 +50,8 @@ public final class Rows {
             ControlKeyRow.class,
             CoreRow.class,
             BlindCodeRow.class,
-            TransferRow.class);
+            TransferRow.class,
+            CounterRow.class);
 
     private Rows() {}
 }
