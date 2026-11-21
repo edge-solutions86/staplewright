@@ -1,6 +1,7 @@
 package io.github.rkaushikdev.staplewright.campus;
 
 import io.github.rkaushikdev.staplewright.Valued;
+import io.github.rkaushikdev.staplewright.util.Choices;
 import java.util.Optional;
 
 /** What a surveyor found on a door that somebody has to deal with. */

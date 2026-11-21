@@ -1,5 +1,6 @@
 package io.github.rkaushikdev.staplewright.control;
 
+import io.github.rkaushikdev.staplewright.util.Tallies;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;

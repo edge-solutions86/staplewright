@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 import io.github.rkaushikdev.staplewright.InputError;
 import io.github.rkaushikdev.staplewright.Valued;
+import io.github.rkaushikdev.staplewright.util.Choices;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.Function;

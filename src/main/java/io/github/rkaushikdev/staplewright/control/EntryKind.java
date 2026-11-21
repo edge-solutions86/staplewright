@@ -1,6 +1,7 @@
 package io.github.rkaushikdev.staplewright.control;
 
 import io.github.rkaushikdev.staplewright.Valued;
+import io.github.rkaushikdev.staplewright.util.Choices;
 import java.util.Optional;
 
 /** What one line of the deposit book does. A charge takes money in; the rest give it up again. */

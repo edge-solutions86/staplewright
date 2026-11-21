@@ -1,6 +1,7 @@
 package io.github.rkaushikdev.staplewright.rekey;
 
 import io.github.rkaushikdev.staplewright.Valued;
+import io.github.rkaushikdev.staplewright.util.Choices;
 import java.util.Optional;
 
 /** What sort of gap in the calendar a work window is. */

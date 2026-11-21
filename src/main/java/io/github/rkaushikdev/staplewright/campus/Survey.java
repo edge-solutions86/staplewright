@@ -2,6 +2,7 @@ package io.github.rkaushikdev.staplewright.campus;
 
 import io.github.rkaushikdev.staplewright.InputError;
 import io.github.rkaushikdev.staplewright.Registry;
+import io.github.rkaushikdev.staplewright.util.Tallies;
 import io.github.rkaushikdev.staplewright.util.Text;
 import java.time.LocalDate;
 import java.util.Collection;

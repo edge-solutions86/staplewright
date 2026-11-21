@@ -4,6 +4,7 @@ import io.github.rkaushikdev.staplewright.ConflictError;
 import io.github.rkaushikdev.staplewright.Facts;
 import io.github.rkaushikdev.staplewright.NotFoundError;
 import io.github.rkaushikdev.staplewright.Registry;
+import io.github.rkaushikdev.staplewright.util.Tallies;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;

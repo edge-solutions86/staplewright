@@ -3,6 +3,7 @@ package io.github.rkaushikdev.staplewright.campus;
 import io.github.rkaushikdev.staplewright.ConflictError;
 import io.github.rkaushikdev.staplewright.Facts;
 import io.github.rkaushikdev.staplewright.Registry;
+import io.github.rkaushikdev.staplewright.util.Tallies;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;

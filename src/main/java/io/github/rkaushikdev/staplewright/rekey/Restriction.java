@@ -1,6 +1,7 @@
 package io.github.rkaushikdev.staplewright.rekey;
 
 import io.github.rkaushikdev.staplewright.Valued;
+import io.github.rkaushikdev.staplewright.util.Choices;
 import java.util.Optional;
 
 /** Why a building cannot be touched outside its window, in the words the plan prints. */

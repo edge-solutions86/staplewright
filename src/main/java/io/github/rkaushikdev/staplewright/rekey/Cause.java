@@ -1,6 +1,7 @@
 package io.github.rkaushikdev.staplewright.rekey;
 
 import io.github.rkaushikdev.staplewright.Valued;
+import io.github.rkaushikdev.staplewright.util.Choices;
 import java.util.Optional;
 
 /** How a key left the shop's control. */
