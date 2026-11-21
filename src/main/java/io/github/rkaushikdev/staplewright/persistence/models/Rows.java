@@ -28,7 +28,14 @@ public final class Rows {
             AuthorizerRow.class,
             KeyRequestRow.class,
             IssuedKeyRow.class,
-            DepositLineRow.class);
+            DepositLineRow.class,
+            ReviewRow.class,
+            ReviewLineRow.class,
+            KeyedAlikeSetRow.class,
+            KeyedAlikeMemberRow.class,
+            LockoutRow.class,
+            SurveyRow.class,
+            SurveyLineRow.class);
 
     private Rows() {}
 }
