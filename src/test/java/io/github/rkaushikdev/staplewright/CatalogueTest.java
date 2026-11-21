@@ -45,7 +45,7 @@ class CatalogueTest {
                 return definition.getMetadata().isIndependent();
             }
         };
-        scanner.addIncludeFilter(new AssignableTypeFilter(HaspError.class));
+        scanner.addIncludeFilter(new AssignableTypeFilter(StaplewrightError.class));
         return scanner.findCandidateComponents("io.github.rkaushikdev.staplewright").stream()
                 .map(BeanDefinition::getBeanClassName)
                 .filter(name -> !name.endsWith("Test") && !name.contains("Test$"))
@@ -103,7 +103,7 @@ class CatalogueTest {
 
     @Test
     void noTwoRefusalsShareAClass() {
-        List<Class<? extends HaspError>> found =
+        List<Class<? extends StaplewrightError>> found =
                 Catalogue.CATALOGUE.stream().map(Refusal::kind).toList();
         assertThat(new HashSet<>(found)).hasSize(found.size());
     }
@@ -140,7 +140,8 @@ class CatalogueTest {
 
     @Test
     void aBareRefusalGetsTheGeneralEntry() {
-        assertThat(Catalogue.refusalFor(new HaspError("something")).kind()).isEqualTo(HaspError.class);
+        assertThat(Catalogue.refusalFor(new StaplewrightError("something")).kind())
+                .isEqualTo(StaplewrightError.class);
     }
 
     @Test

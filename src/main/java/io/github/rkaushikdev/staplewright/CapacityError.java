@@ -3,7 +3,7 @@ package io.github.rkaushikdev.staplewright;
 import java.util.Map;
 
 /** The system has run out of the thing being asked for. */
-public class CapacityError extends HaspError {
+public class CapacityError extends StaplewrightError {
 
     /** The stable code a caller branches on. */
     public static final String CODE = "capacity";

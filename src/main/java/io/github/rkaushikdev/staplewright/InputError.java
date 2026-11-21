@@ -3,7 +3,7 @@ package io.github.rkaushikdev.staplewright;
 import java.util.Map;
 
 /** Somebody typed something the library cannot read. */
-public class InputError extends HaspError {
+public class InputError extends StaplewrightError {
 
     /** The stable code a caller branches on. */
     public static final String CODE = "input";

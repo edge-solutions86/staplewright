@@ -3,7 +3,7 @@ package io.github.rkaushikdev.staplewright;
 import java.util.Map;
 
 /** A blank or a keyway section will not do what was asked of it. */
-public class KeywayError extends HaspError {
+public class KeywayError extends StaplewrightError {
 
     /** The stable code a caller branches on. */
     public static final String CODE = "keyway";

@@ -3,7 +3,7 @@ package io.github.rkaushikdev.staplewright;
 import java.util.Map;
 
 /** The array cannot be progressed the way the system was set up. */
-public class ProgressionError extends HaspError {
+public class ProgressionError extends StaplewrightError {
 
     /** The stable code a caller branches on. */
     public static final String CODE = "progression";

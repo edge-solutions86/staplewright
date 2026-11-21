@@ -20,14 +20,14 @@ import java.util.stream.Collectors;
  * <p>{@link #getMessage()} is the sentence followed by the facts in name order, which is what a
  * terminal prints; {@link #message()} is the sentence alone.
  */
-public class HaspError extends RuntimeException {
+public class StaplewrightError extends RuntimeException {
 
     /** The code of a refusal with nothing more specific to say. */
-    public static final String CODE = "hasp_error";
+    public static final String CODE = "staplewright_error";
 
     /** Every refusal class this library raises, the base first. */
-    public static final List<Class<? extends HaspError>> KINDS = List.of(
-            HaspError.class,
+    public static final List<Class<? extends StaplewrightError>> KINDS = List.of(
+            StaplewrightError.class,
             InputError.class,
             SpecificationError.class,
             BittingError.class,
@@ -42,12 +42,12 @@ public class HaspError extends RuntimeException {
     private final String message;
     private final Map<String, Object> facts;
 
-    public HaspError(String message) {
+    public StaplewrightError(String message) {
         this(message, Map.of());
     }
 
     /** A refusal with the facts that produced it, copied so the caller's map stays its own. */
-    public HaspError(String message, Map<String, ?> facts) {
+    public StaplewrightError(String message, Map<String, ?> facts) {
         super(message);
         this.message = message;
         this.facts = Collections.unmodifiableMap(new LinkedHashMap<>(facts));
@@ -103,11 +103,11 @@ public class HaspError extends RuntimeException {
      *
      * @throws SpecificationError when two classes claim one code
      */
-    public static Map<String, Class<? extends HaspError>> errorCodes() {
-        Map<String, Class<? extends HaspError>> found = new LinkedHashMap<>();
-        for (Class<? extends HaspError> kind : KINDS) {
+    public static Map<String, Class<? extends StaplewrightError>> errorCodes() {
+        Map<String, Class<? extends StaplewrightError>> found = new LinkedHashMap<>();
+        for (Class<? extends StaplewrightError> kind : KINDS) {
             String code = codeOf(kind);
-            Class<? extends HaspError> existing = found.get(code);
+            Class<? extends StaplewrightError> existing = found.get(code);
             if (existing != null && existing != kind) {
                 throw new SpecificationError(
                         "two error classes claim one code",
@@ -119,7 +119,7 @@ public class HaspError extends RuntimeException {
     }
 
     /** The code a refusal class declares in its {@code CODE} constant. */
-    public static String codeOf(Class<? extends HaspError> kind) {
+    public static String codeOf(Class<? extends StaplewrightError> kind) {
         try {
             return (String) kind.getField("CODE").get(null);
         } catch (ReflectiveOperationException missing) {

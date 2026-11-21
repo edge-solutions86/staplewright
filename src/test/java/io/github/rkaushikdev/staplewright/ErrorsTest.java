@@ -19,19 +19,19 @@ class ErrorsTest {
 
     @Test
     void messageAloneRendersAsItself() {
-        HaspError err = new BittingError("cut four is deeper than the chart goes");
+        StaplewrightError err = new BittingError("cut four is deeper than the chart goes");
         assertThat(err.getMessage()).isEqualTo("cut four is deeper than the chart goes");
     }
 
     @Test
     void factsRenderInAStableOrder() {
-        HaspError err = new BittingError("out of range", Facts.of("chamber", 4, "depth", 9, "deepest", 7));
+        StaplewrightError err = new BittingError("out of range", Facts.of("chamber", 4, "depth", 9, "deepest", 7));
         assertThat(err.getMessage()).isEqualTo("out of range (chamber=4, deepest=7, depth=9)");
     }
 
     @Test
     void asDictCarriesTheCode() {
-        HaspError err = new PinningError("stack too tall", Facts.of("chamber", 2, "height", 345));
+        StaplewrightError err = new PinningError("stack too tall", Facts.of("chamber", 2, "height", 345));
         Map<String, Object> facts = new LinkedHashMap<>();
         facts.put("chamber", 2);
         facts.put("height", 345);
@@ -41,7 +41,7 @@ class ErrorsTest {
     @Test
     void factsAreCopiedNotShared() {
         Map<String, Object> facts = new HashMap<>(Map.of("chamber", 1));
-        HaspError err = new HaspError("something", facts);
+        StaplewrightError err = new StaplewrightError("something", facts);
         facts.put("chamber", 99);
         assertThat(err.facts()).containsEntry("chamber", 1);
         assertThatThrownBy(() -> err.facts().put("chamber", 99)).isInstanceOf(UnsupportedOperationException.class);
@@ -63,29 +63,30 @@ class ErrorsTest {
 
     @ParameterizedTest
     @MethodSource
-    void eachClassKeepsItsCode(Class<? extends HaspError> kind, String code) throws Exception {
-        assertThat(HaspError.codeOf(kind)).isEqualTo(code);
-        assertThat(HaspError.class).isAssignableFrom(kind);
+    void eachClassKeepsItsCode(Class<? extends StaplewrightError> kind, String code) throws Exception {
+        assertThat(StaplewrightError.codeOf(kind)).isEqualTo(code);
+        assertThat(StaplewrightError.class).isAssignableFrom(kind);
         assertThat(kind.getConstructor(String.class).newInstance("no").code()).isEqualTo(code);
     }
 
     @Test
     void everyCodeIsUniqueAndReachable() {
-        Map<String, Class<? extends HaspError>> codes = HaspError.errorCodes();
+        Map<String, Class<? extends StaplewrightError>> codes = StaplewrightError.errorCodes();
         assertThat(codes.get("bitting")).isEqualTo(BittingError.class);
-        assertThat(codes.get("hasp_error")).isEqualTo(HaspError.class);
+        assertThat(codes.get("staplewright_error")).isEqualTo(StaplewrightError.class);
         Set<String> names = codes.values().stream().map(Class::getSimpleName).collect(Collectors.toSet());
         assertThat(codes).hasSize(names.size());
     }
 
     @Test
     void catchingTheBaseCatchesAllOfThem() throws Exception {
-        for (Class<? extends HaspError> kind : HaspError.errorCodes().values()) {
-            Constructor<? extends HaspError> make = kind.getConstructor(String.class);
+        for (Class<? extends StaplewrightError> kind :
+                StaplewrightError.errorCodes().values()) {
+            Constructor<? extends StaplewrightError> make = kind.getConstructor(String.class);
             assertThatThrownBy(() -> {
                         throw make.newInstance("no");
                     })
-                    .isInstanceOf(HaspError.class);
+                    .isInstanceOf(StaplewrightError.class);
         }
     }
 }

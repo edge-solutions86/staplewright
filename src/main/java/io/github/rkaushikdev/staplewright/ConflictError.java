@@ -3,7 +3,7 @@ package io.github.rkaushikdev.staplewright;
 import java.util.Map;
 
 /** Two facts that both have to be true are not. */
-public class ConflictError extends HaspError {
+public class ConflictError extends StaplewrightError {
 
     /** The stable code a caller branches on. */
     public static final String CODE = "conflict";

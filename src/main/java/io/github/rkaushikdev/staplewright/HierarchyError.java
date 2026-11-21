@@ -3,7 +3,7 @@ package io.github.rkaushikdev.staplewright;
 import java.util.Map;
 
 /** A key symbol or a level does not fit the schedule it was handed to. */
-public class HierarchyError extends HaspError {
+public class HierarchyError extends StaplewrightError {
 
     /** The stable code a caller branches on. */
     public static final String CODE = "hierarchy";

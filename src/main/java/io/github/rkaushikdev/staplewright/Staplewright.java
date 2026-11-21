@@ -43,7 +43,6 @@ public final class Staplewright {
             ConflictError.class,
             CuttingRules.class,
             DepthAndSpaceChart.class,
-            HaspError.class,
             HierarchyError.class,
             InputError.class,
             KeySymbol.class,
@@ -55,7 +54,8 @@ public final class Staplewright {
             ProgressionError.class,
             Settings.class,
             ShopSettings.class,
-            SpecificationError.class);
+            SpecificationError.class,
+            StaplewrightError.class);
 
     private Staplewright() {}
 }

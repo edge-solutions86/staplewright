@@ -11,7 +11,7 @@ import java.util.Locale;
  * @param meaning what the refusal means, in a phrase
  * @param retry whether the same request could succeed once the caller fixed something
  */
-public record Refusal(String code, Class<? extends HaspError> kind, int status, String meaning, boolean retry) {
+public record Refusal(String code, Class<? extends StaplewrightError> kind, int status, String meaning, boolean retry) {
 
     /** One line for the interface note: the code, the status, the meaning and the advice. */
     public String describe() {

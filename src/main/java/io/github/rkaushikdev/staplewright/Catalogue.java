@@ -44,7 +44,12 @@ public final class Catalogue {
             new Refusal(
                     ProgressionError.CODE, ProgressionError.class, 400, "the progression cannot produce that", false),
             new Refusal(PinningError.CODE, PinningError.class, 400, "the brass cannot be stacked that way", false),
-            new Refusal(HaspError.CODE, HaspError.class, 400, "a refusal with nothing more specific to say", false));
+            new Refusal(
+                    StaplewrightError.CODE,
+                    StaplewrightError.class,
+                    400,
+                    "a refusal with nothing more specific to say",
+                    false));
 
     /** The catalogue keyed by code. */
     public static final Map<String, Refusal> BY_CODE = byCode();
@@ -60,7 +65,7 @@ public final class Catalogue {
     }
 
     /** The catalogue entry for a refusal, by the closest class that has one. */
-    public static Refusal refusalFor(HaspError error) {
+    public static Refusal refusalFor(StaplewrightError error) {
         for (Class<?> kind = error.getClass(); kind != null; kind = kind.getSuperclass()) {
             for (Refusal item : CATALOGUE) {
                 if (item.kind() == kind) {
@@ -68,15 +73,15 @@ public final class Catalogue {
                 }
             }
         }
-        return BY_CODE.get(HaspError.CODE);
+        return BY_CODE.get(StaplewrightError.CODE);
     }
 
-    public static int statusFor(HaspError error) {
+    public static int statusFor(StaplewrightError error) {
         return refusalFor(error).status();
     }
 
     /** Whether the same request could succeed if the caller fixed something. */
-    public static boolean worthRetrying(HaspError error) {
+    public static boolean worthRetrying(StaplewrightError error) {
         return refusalFor(error).retry();
     }
 

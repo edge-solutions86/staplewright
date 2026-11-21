@@ -3,7 +3,7 @@ package io.github.rkaushikdev.staplewright;
 import java.util.Map;
 
 /** A manufacturer specification is inconsistent or was used wrongly. */
-public class SpecificationError extends HaspError {
+public class SpecificationError extends StaplewrightError {
 
     /** The stable code a caller branches on. */
     public static final String CODE = "specification";

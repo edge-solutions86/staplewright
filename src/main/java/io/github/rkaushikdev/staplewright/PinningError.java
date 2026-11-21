@@ -3,7 +3,7 @@ package io.github.rkaushikdev.staplewright;
 import java.util.Map;
 
 /** The stack the shop would have to build does not exist in metal. */
-public class PinningError extends HaspError {
+public class PinningError extends StaplewrightError {
 
     /** The stable code a caller branches on. */
     public static final String CODE = "pinning";
