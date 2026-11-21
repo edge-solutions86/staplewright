@@ -1,5 +1,11 @@
 # staplewright
 
+[![CI](https://github.com/rkaushik-dev/staplewright/actions/workflows/ci.yml/badge.svg)](https://github.com/rkaushik-dev/staplewright/actions/workflows/ci.yml)
+![Java 21](https://img.shields.io/badge/Java-21-007396)
+![Spring Boot 3.5](https://img.shields.io/badge/Spring%20Boot-3.5-6DB33F)
+![Gradle](https://img.shields.io/badge/build-Gradle-02303A)
+![JUnit 5](https://img.shields.io/badge/tests-JUnit%205-25A162)
+
 Key control and master key system design for the campus lock shop.
 
 The shop keeps the keying systems for every building on campus. This is the
