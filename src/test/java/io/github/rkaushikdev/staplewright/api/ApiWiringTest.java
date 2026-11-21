@@ -2,6 +2,7 @@ package io.github.rkaushikdev.staplewright.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.rkaushikdev.staplewright.keys.Marking;
 import io.github.rkaushikdev.staplewright.persistence.Session;
 import io.github.rkaushikdev.staplewright.settings.Settings;
 import io.github.rkaushikdev.staplewright.support.Api;
@@ -14,6 +15,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -72,6 +75,19 @@ class ApiWiringTest {
                 Counter second = new Counter(session, "wide");
                 return Map.of("same", first.session == second.session);
             });
+        }
+
+        /** A body naming a choice. */
+        record Stamped(Marking marking) {}
+
+        @PostMapping("/choice")
+        Map<String, Object> six(@RequestBody Stamped body) {
+            return Map.of("marking", body.marking(), "name", body.marking().name());
+        }
+
+        @GetMapping("/choice")
+        Map<String, Object> seven(@RequestParam Marking marking) {
+            return Map.of("name", marking.name());
         }
 
         @GetMapping("/page")
@@ -134,5 +150,22 @@ class ApiWiringTest {
     @Test
     void thePlainFlagIsAQueryAndNeverAPath() {
         assertThat(client.get("/page/true").status()).isEqualTo(404);
+    }
+
+    @Test
+    void aChoiceTravelsAsTheValueItIsWrittenAs() {
+        Api.Answer found = client.post("/choice", Map.of("marking", "a blind code"));
+        assertThat(found.json()).isEqualTo(Map.of("marking", "a blind code", "name", "BLIND"));
+    }
+
+    @Test
+    void aChoiceNobodyHasIsRefusedBeforeTheRoute() {
+        assertThat(client.post("/choice", Map.of("marking", "BLIND")).status()).isEqualTo(422);
+        assertThat(client.get("/choice", "marking", "engraved").status()).isEqualTo(422);
+    }
+
+    @Test
+    void aQueryParameterNamesAChoiceTheSameWay() {
+        assertThat(client.get("/choice", "marking", "the tag number").json()).isEqualTo(Map.of("name", "TAG"));
     }
 }

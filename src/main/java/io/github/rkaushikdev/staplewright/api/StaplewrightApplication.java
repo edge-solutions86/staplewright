@@ -61,6 +61,12 @@ public class StaplewrightApplication {
                 .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 
+    /** Choices read and written as the values they are written as; Boot installs every module bean. */
+    @Bean
+    com.fasterxml.jackson.databind.Module valuedChoices() {
+        return new ValuedJson();
+    }
+
     @Bean
     OpenAPI openApi() {
         return new OpenAPI()
