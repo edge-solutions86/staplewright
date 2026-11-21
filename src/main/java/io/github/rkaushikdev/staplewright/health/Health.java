@@ -1,5 +1,7 @@
 package io.github.rkaushikdev.staplewright.health;
 
+import io.github.rkaushikdev.staplewright.Facts;
+import io.github.rkaushikdev.staplewright.NotFoundError;
 import io.github.rkaushikdev.staplewright.campus.DoorFunction;
 import io.github.rkaushikdev.staplewright.control.TransferPolicy;
 import io.github.rkaushikdev.staplewright.persistence.Session;
@@ -44,17 +46,28 @@ public final class Health {
         List<Finding> run(Session session, LocalDate today);
     }
 
+    /**
+     * A check with the name it is asked for by.
+     *
+     * @param name what a caller asks for it by, which is the question written short
+     * @param check the check itself
+     */
+    public record Named(String name, Check check) {}
+
+    /** Every check by name, the most serious kinds of trouble first. */
+    public static final List<Named> NAMED = List.of(
+            new Named("unkeyed_openings", Health::unkeyedOpenings),
+            new Named("keys_held_by_lapsed_people", Health::keysHeldByLapsedPeople),
+            new Named("quarantined_cuts_in_use", Health::quarantinedCutsInUse),
+            new Named("handovers_nobody_confirmed", Health::handoversNobodyConfirmed),
+            new Named("groups_with_no_cylinders", Health::groupsWithNoCylinders),
+            new Named("keys_that_wandered", Health::keysThatWandered),
+            new Named("openings_with_no_cylinder", Health::openingsWithNoCylinder),
+            new Named("uninstalled_cylinders", Health::uninstalledCylinders),
+            new Named("uncut_symbols", Health::uncutSymbols));
+
     /** Every check, the most serious kinds of trouble first. */
-    public static final List<Check> CHECKS = List.of(
-            Health::unkeyedOpenings,
-            Health::keysHeldByLapsedPeople,
-            Health::quarantinedCutsInUse,
-            Health::handoversNobodyConfirmed,
-            Health::groupsWithNoCylinders,
-            Health::keysThatWandered,
-            Health::openingsWithNoCylinder,
-            Health::uninstalledCylinders,
-            Health::uncutSymbols);
+    public static final List<Check> CHECKS = NAMED.stream().map(Named::check).toList();
 
     private static final Comparator<Finding> WORST_FIRST = Comparator.comparing(
                     (Finding item) -> item.severity().value(), Comparator.reverseOrder())
@@ -224,6 +237,20 @@ public final class Health {
                         item.number(),
                         item.tag() + " claimed " + item.claimedOn() + ", nobody signed"))
                 .toList();
+    }
+
+    /** Every check's name, sorted. */
+    public static List<String> checkNames() {
+        return NAMED.stream().map(Named::name).sorted().toList();
+    }
+
+    /** The check called {@code name}, refusing one nobody wrote. */
+    public static Check checkByName(String name) {
+        return NAMED.stream()
+                .filter(item -> item.name().equals(name))
+                .map(Named::check)
+                .findFirst()
+                .orElseThrow(() -> new NotFoundError("no such check", Facts.of("check", name)));
     }
 
     /** Every check, worst first, then by check and by what it is about. */

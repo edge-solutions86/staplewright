@@ -3,6 +3,7 @@ package io.github.rkaushikdev.staplewright.api;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import io.github.rkaushikdev.staplewright.Catalogue;
 import io.github.rkaushikdev.staplewright.StaplewrightError;
+import jakarta.validation.ConstraintViolationException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -84,6 +85,17 @@ public class Errors {
                                 String.valueOf(result.getMethodParameter().getParameterName())),
                         error.getDefaultMessage(),
                         "invalid"))));
+        return unprocessable(problems);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Map<String, Object>> violated(ConstraintViolationException failure) {
+        List<Map<String, Object>> problems = new ArrayList<>();
+        failure.getConstraintViolations()
+                .forEach(violation -> problems.add(problem(
+                        List.of("query", String.valueOf(violation.getPropertyPath())),
+                        violation.getMessage(),
+                        "invalid")));
         return unprocessable(problems);
     }
 

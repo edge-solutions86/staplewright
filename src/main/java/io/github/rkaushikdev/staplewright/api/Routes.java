@@ -12,7 +12,7 @@ import java.util.List;
 public final class Routes {
 
     /** Every route group, health first. */
-    public static final List<Class<?>> ROUTERS = List.of();
+    public static final List<Class<?>> ROUTERS = List.of(HealthRoutes.class);
 
     private Routes() {}
 }
