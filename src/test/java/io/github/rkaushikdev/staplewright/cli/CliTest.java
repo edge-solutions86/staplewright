@@ -216,6 +216,13 @@ class CliTest {
     }
 
     @Test
+    void everyGroupInTheListIsAttached() {
+        CommandLine root = Main.commandLine(new Main(io.github.rkaushikdev.staplewright.cli.Terminal.system()));
+        assertThat(Main.GROUPS).hasSize(15);
+        assertThat(root.getSubcommands().keySet()).containsAll(names(Main.GROUPS));
+    }
+
+    @Test
     void everyServiceCommandIsAttached() {
         CommandLine root = Main.commandLine(new Main(io.github.rkaushikdev.staplewright.cli.Terminal.system()));
         assertThat(root.getSubcommands().keySet()).containsAll(names(Main.COMMANDS));

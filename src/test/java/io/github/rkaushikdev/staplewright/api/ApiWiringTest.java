@@ -168,4 +168,43 @@ class ApiWiringTest {
     void aQueryParameterNamesAChoiceTheSameWay() {
         assertThat(client.get("/choice", "marking", "the tag number").json()).isEqualTo(Map.of("name", "TAG"));
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void everyRouterInTheListIsAttached() {
+        Api running = Api.client();
+        Map<String, Object> document = running.get("/openapi.json").json();
+        java.util.Set<String> tags = new java.util.TreeSet<>();
+        for (Object path : ((Map<String, Object>) document.get("paths")).values()) {
+            for (Object operation : ((Map<String, Object>) path).values()) {
+                tags.addAll((List<String>) ((Map<String, Object>) operation).getOrDefault("tags", List.of()));
+            }
+        }
+        assertThat(Routes.ROUTERS).hasSize(12);
+        assertThat(tags).contains("service", "systems", "counter", "stamping", "returns");
+        for (Class<?> router : Routes.ROUTERS) {
+            assertThat(running.context().getBeanNamesForType(router))
+                    .as(router.getSimpleName())
+                    .isNotEmpty();
+        }
+    }
+
+    @Test
+    void theHealthRouterIsFirst() {
+        assertThat(Routes.ROUTERS.get(0)).isEqualTo(HealthRoutes.class);
+    }
+
+    @Test
+    void everyRouterInTheListIsAGroupOfRoutes() {
+        for (Class<?> router : Routes.ROUTERS) {
+            assertThat(router.isAnnotationPresent(org.springframework.web.bind.annotation.RestController.class))
+                    .as(router.getSimpleName())
+                    .isTrue();
+        }
+    }
+
+    @Test
+    void noRouterIsListedTwice() {
+        assertThat(new HashSet<>(Routes.ROUTERS)).hasSize(Routes.ROUTERS.size());
+    }
 }
