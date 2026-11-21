@@ -30,6 +30,22 @@ public record StampPolicy(Marking changeKeys, Marking masters, boolean addDoNotD
         this(Marking.SYMBOL, Marking.BLIND, true, BOW_CHARACTERS);
     }
 
+    public StampPolicy withChangeKeys(Marking value) {
+        return new StampPolicy(value, masters, addDoNotDuplicate, bowCharacters);
+    }
+
+    public StampPolicy withMasters(Marking value) {
+        return new StampPolicy(changeKeys, value, addDoNotDuplicate, bowCharacters);
+    }
+
+    public StampPolicy withAddDoNotDuplicate(boolean value) {
+        return new StampPolicy(changeKeys, masters, value, bowCharacters);
+    }
+
+    public StampPolicy withBowCharacters(int value) {
+        return new StampPolicy(changeKeys, masters, addDoNotDuplicate, value);
+    }
+
     /** What goes on the brass of a key with this symbol. */
     public Marking markingFor(KeySymbol symbol) {
         return symbol.isChangeKey() ? changeKeys : masters;
