@@ -67,6 +67,7 @@ public final class Main implements Common.Sessions {
             ReleaseCommands.class,
             ReportCommands.class,
             AnnualCommands.class,
+            StampingCommands.class,
             StockCommands.class,
             SystemCommands.class);
 
@@ -165,6 +166,37 @@ public final class Main implements Common.Sessions {
     /** What {@code work} answers, in a session that commits when it returns. */
     <T> T fromSession(Function<Session, T> work) {
         return database().fromSession(work);
+    }
+
+    /**
+     * Ask before going on, and stop on anything but a yes. An empty answer, a no, or nothing typed at
+     * all is a refusal to go on; anything else asks again.
+     *
+     * @throws Stopped when the person declines
+     */
+    void confirm(String question) {
+        while (true) {
+            terminal.out().print(question + " [y/N]: ");
+            terminal.out().flush();
+            String answer;
+            try {
+                answer = terminal.in().readLine();
+            } catch (java.io.IOException unreadable) {
+                throw new java.io.UncheckedIOException(unreadable);
+            }
+            if (answer == null) {
+                terminal.out().println();
+                throw new Stopped();
+            }
+            String said = Text.lower(Text.strip(answer));
+            if (said.equals("y") || said.equals("yes")) {
+                return;
+            }
+            if (said.isEmpty() || said.equals("n") || said.equals("no")) {
+                throw new Stopped();
+            }
+            terminal.out().println("Error: invalid input");
+        }
     }
 
     private void close() {

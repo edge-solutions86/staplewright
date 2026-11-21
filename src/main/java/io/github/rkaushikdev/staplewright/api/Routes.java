@@ -17,6 +17,7 @@ public final class Routes {
             AnnualRoutes.class,
             BoxRoutes.class,
             KeyRoutes.class,
+            StampingRoutes.class,
             StockRoutes.class,
             SystemRoutes.class,
             TransferRoutes.class);
