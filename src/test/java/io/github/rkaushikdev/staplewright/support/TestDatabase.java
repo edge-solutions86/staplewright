@@ -25,11 +25,17 @@ public final class TestDatabase {
 
     /** The shared database, emptied. */
     public static synchronized Database fresh() {
+        Database database = database();
+        empty(database);
+        return database;
+    }
+
+    /** The shared database as it stands, migrated the first time it is asked for. */
+    public static synchronized Database database() {
         if (shared == null) {
             shared = Database.open(URL);
             shared.migrate();
         }
-        empty(shared);
         return shared;
     }
 
