@@ -12,7 +12,18 @@ import java.util.List;
 public final class Routes {
 
     /** Every route group, health first. */
-    public static final List<Class<?>> ROUTERS = List.of(HealthRoutes.class, AnnualRoutes.class, BoxRoutes.class, DoorRoutes.class, IncidentRoutes.class, KeyRoutes.class, StampingRoutes.class, StockRoutes.class, SystemRoutes.class, TransferRoutes.class);
+    public static final List<Class<?>> ROUTERS = List.of(
+            HealthRoutes.class,
+            AnnualRoutes.class,
+            BoxRoutes.class,
+            DoorRoutes.class,
+            IncidentRoutes.class,
+            KeyRoutes.class,
+            ReportRoutes.class,
+            StampingRoutes.class,
+            StockRoutes.class,
+            SystemRoutes.class,
+            TransferRoutes.class);
 
     private Routes() {}
 }
