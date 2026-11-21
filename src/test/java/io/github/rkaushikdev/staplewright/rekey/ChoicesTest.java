@@ -22,7 +22,11 @@ class ChoicesTest {
     }
 
     static Stream<Arguments> everyChoiceReadsBackFromItsOwnValue() {
-        return Stream.of(each(Cause.class, Cause::fromValue, Cause::find)).flatMap(choices -> choices);
+        return Stream.of(
+                        each(Cause.class, Cause::fromValue, Cause::find),
+                        each(OrderState.class, OrderState::fromValue, OrderState::find),
+                        each(LineState.class, LineState::fromValue, LineState::find))
+                .flatMap(choices -> choices);
     }
 
     @ParameterizedTest
@@ -47,6 +51,12 @@ class ChoicesTest {
         assertThat(Cause.find("STOLEN")).isEmpty();
         assertThat(Cause.find("stolen")).contains(Cause.STOLEN);
         assertThat(Choices.find(Cause.class, null)).isEmpty();
+    }
+
+    @Test
+    void onlyAnInstalledOrSkippedLineIsSettled() {
+        assertThat(LineState.SETTLED).containsExactlyInAnyOrder(LineState.INSTALLED, LineState.SKIPPED);
+        assertThat(LineState.PINNED.isSettled()).isFalse();
     }
 
     @Test
