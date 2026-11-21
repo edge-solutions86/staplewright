@@ -7,6 +7,7 @@ import io.github.rkaushikdev.staplewright.NotFoundError;
 import io.github.rkaushikdev.staplewright.control.DepositRates;
 import io.github.rkaushikdev.staplewright.control.Directory;
 import io.github.rkaushikdev.staplewright.control.EntryKind;
+import io.github.rkaushikdev.staplewright.control.KeyState;
 import io.github.rkaushikdev.staplewright.control.Keyholder;
 import io.github.rkaushikdev.staplewright.control.RequestState;
 import io.github.rkaushikdev.staplewright.persistence.KeyRepository;
@@ -199,7 +200,7 @@ public final class CounterService {
     /** A key comes back, and the deposit goes with it. */
     public IssuedKeyRow takeBack(String tag, LocalDate when, String note) {
         IssuedKeyRow key = out(tag);
-        close(key, "returned", when, note);
+        close(key, KeyState.RETURNED, when, note);
         settle(key, EntryKind.REFUND, when, note);
         session.flush();
         return key;
@@ -213,7 +214,7 @@ public final class CounterService {
     /** A key is gone. The deposit stays with the shop. */
     public IssuedKeyRow reportLost(String tag, LocalDate when, String note) {
         IssuedKeyRow key = out(tag);
-        close(key, "lost", when, note);
+        close(key, KeyState.LOST, when, note);
         settle(key, EntryKind.FORFEIT, when, note.isEmpty() ? "key never came back" : note);
         session.flush();
         return key;
@@ -233,8 +234,8 @@ public final class CounterService {
         session.flush();
     }
 
-    private static void close(IssuedKeyRow key, String state, LocalDate when, String note) {
-        key.setState(state);
+    private static void close(IssuedKeyRow key, KeyState state, LocalDate when, String note) {
+        key.setState(state.value());
         key.setClosedOn(when);
         key.setNote(note);
     }
