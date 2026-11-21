@@ -61,8 +61,13 @@ public final class Main implements Common.Sessions {
      * which for the handover group is {@code import} and for the annual return group is {@code
      * return}.
      */
-    public static final List<Class<?>> GROUPS =
-            List.of(CounterCommands.class, ReleaseCommands.class, ReportCommands.class, AnnualCommands.class, StockCommands.class, SystemCommands.class);
+    public static final List<Class<?>> GROUPS = List.of(
+            CounterCommands.class,
+            ReleaseCommands.class,
+            ReportCommands.class,
+            AnnualCommands.class,
+            StockCommands.class,
+            SystemCommands.class);
 
     private final Terminal terminal;
 
