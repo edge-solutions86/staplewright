@@ -16,6 +16,7 @@ public final class Routes {
             HealthRoutes.class,
             AnnualRoutes.class,
             BoxRoutes.class,
+            IncidentRoutes.class,
             KeyRoutes.class,
             StampingRoutes.class,
             StockRoutes.class,
