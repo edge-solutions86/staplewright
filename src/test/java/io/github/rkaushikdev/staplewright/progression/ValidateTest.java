@@ -1,0 +1,186 @@
+package io.github.rkaushikdev.staplewright.progression;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import io.github.rkaushikdev.staplewright.keys.Bitting;
+import io.github.rkaushikdev.staplewright.keys.KeySymbol;
+import io.github.rkaushikdev.staplewright.keys.KeyingSchedule;
+import io.github.rkaushikdev.staplewright.keys.ScheduleEntry;
+import io.github.rkaushikdev.staplewright.support.Charts;
+import io.github.rkaushikdev.staplewright.support.Systems;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.Test;
+
+class ValidateTest {
+
+    private static final Map<String, String> CUTS = cuts();
+
+    private static final List<String> WORST_FIRST = List.of("blocking", "serious", "note");
+
+    private static Map<String, String> cuts() {
+        Map<String, String> cuts = new LinkedHashMap<>();
+        cuts.put("GGM", "442446");
+        cuts.put("A", "642446");
+        cuts.put("B", "242446");
+        cuts.put("AA", "622446");
+        cuts.put("AB", "662446");
+        cuts.put("AA1", "620446");
+        cuts.put("AA2", "624446");
+        cuts.put("AB1", "662046");
+        cuts.put("AB2", "662646");
+        return cuts;
+    }
+
+    private static KeySymbol sym(String text) {
+        return KeySymbol.parse(text);
+    }
+
+    private static Bitting b(String text) {
+        return Bitting.parse(text);
+    }
+
+    private static KeyingSchedule aGoodSchedule() {
+        KeyingSchedule schedule = Systems.smallSchedule();
+        CUTS.forEach((symbol, bitting) -> schedule.assign(sym(symbol), b(bitting)));
+        return schedule;
+    }
+
+    /** Write a line the way the database would, checks and all skipped. */
+    private static KeyingSchedule force(KeyingSchedule schedule, String symbol, String bitting) {
+        ScheduleEntry entry = schedule.entry(sym(symbol));
+        schedule.load(new ScheduleEntry(entry.symbol(), entry.section(), Optional.of(b(bitting)), entry.note()));
+        return schedule;
+    }
+
+    private static List<Bitting> crowdedKeys() {
+        return List.of(b("442446"), b("642446"), b("242446"), b("842446"));
+    }
+
+    @Test
+    void aCleanScheduleHasNothingToSay() {
+        KeyingSchedule schedule = aGoodSchedule();
+        assertThat(Validation.duplicateCuts(schedule)).isEmpty();
+        assertThat(Validation.keysMatchingTheirMaster(schedule)).isEmpty();
+        assertThat(Validation.thinSplits(schedule)).isEmpty();
+        assertThat(Validation.review(schedule)).isEmpty();
+        assertThat(Validation.isBuildable(Validation.review(schedule))).isTrue();
+    }
+
+    @Test
+    void twoKeysCutTheSameIsBlocking() {
+        KeyingSchedule schedule = force(aGoodSchedule(), "AB2", "620446");
+        List<Finding> found = Validation.duplicateCuts(schedule);
+        assertThat(found).hasSize(1);
+        assertThat(found.get(0).severity()).isSameAs(Severity.BLOCKING);
+        assertThat(found.get(0).message()).contains("AA1");
+        assertThat(found.get(0).symbol()).contains("AB2");
+    }
+
+    @Test
+    void aChangeKeyCutLikeItsMasterIsBlocking() {
+        KeyingSchedule schedule = force(aGoodSchedule(), "AA1", "622446");
+        List<Finding> found = Validation.keysMatchingTheirMaster(schedule);
+        assertThat(found.stream().map(Finding::symbol).toList()).containsExactly(Optional.of("AA1"));
+        assertThat(found.get(0).code()).isEqualTo("same_as_master");
+    }
+
+    @Test
+    void aOneStepSplitIsSeriousNotBlocking() {
+        KeyingSchedule schedule = force(aGoodSchedule(), "AA1", "621446");
+        List<Finding> found = Validation.thinSplits(schedule);
+        assertThat(found.stream().map(Finding::code).toList()).containsExactly("off_step");
+        assertThat(found.get(0).severity()).isSameAs(Severity.SERIOUS);
+        assertThat(found.get(0).message()).contains("chamber 3");
+    }
+
+    @Test
+    void aSystemThatMovesOneStepAtATimeSeesNothing() {
+        KeyingSchedule schedule = force(aGoodSchedule(), "AA1", "621446");
+        assertThat(Validation.thinSplits(schedule, 1)).isEmpty();
+    }
+
+    @Test
+    void aKeyThatMovedInAConstantChamberIsOffPlan() {
+        KeyingSchedule schedule = force(aGoodSchedule(), "AA1", "621456");
+        ProgressionPlan plan = new ProgressionPlan(Charts.sixPinChart(), b("622446"), List.of(3), 2);
+        List<Finding> found = Validation.keysOffPlan(schedule, plan);
+        Set<Optional<String>> codes = found.stream().map(Finding::symbol).collect(Collectors.toSet());
+        assertThat(codes).contains(Optional.of("AA1"));
+        assertThat(found).anyMatch(finding -> finding.message().contains("constant chamber"));
+    }
+
+    @Test
+    void aKeyThePlanHoldsIsNotReported() {
+        KeyingSchedule schedule = aGoodSchedule();
+        ProgressionPlan plan = new ProgressionPlan(Charts.sixPinChart(), b("622446"), List.of(3), 2);
+        Set<Optional<String>> off = Validation.keysOffPlan(schedule, plan).stream()
+                .map(Finding::symbol)
+                .collect(Collectors.toSet());
+        assertThat(off).doesNotContain(Optional.of("AA1"));
+    }
+
+    @Test
+    void anUncutSymbolIsOnlyANote() {
+        KeyingSchedule schedule = Systems.smallSchedule();
+        List<Finding> found = Validation.uncutSymbols(schedule);
+        assertThat(found).hasSize(schedule.size());
+        assertThat(found).allSatisfy(finding -> assertThat(finding.severity()).isSameAs(Severity.NOTE));
+    }
+
+    @Test
+    void aCrowdedChamberIsReportedAgainstTheGroup() {
+        List<Finding> found = Validation.crowdedChambers(aGoodSchedule(), List.of(crowdedKeys()), 2);
+        assertThat(found.stream().map(Finding::code).toList()).containsExactly("crowded_chamber");
+        assertThat(found.get(0).message()).contains("chamber 1");
+    }
+
+    @Test
+    void aGroupInsideTheLimitIsQuiet() {
+        List<Bitting> keys = List.of(b("442446"), b("642446"));
+        assertThat(Validation.crowdedChambers(aGoodSchedule(), List.of(keys), 2))
+                .isEmpty();
+    }
+
+    @Test
+    void theReportPutsTheBlockingFindingsFirst() {
+        KeyingSchedule schedule = force(aGoodSchedule(), "AB2", "620446");
+        schedule = force(schedule, "AA2", "623446");
+        List<Finding> found = Validation.review(schedule);
+        assertThat(found.get(0).severity()).isSameAs(Severity.BLOCKING);
+        List<Severity> severities = found.stream().map(Finding::severity).toList();
+        assertThat(severities)
+                .isEqualTo(severities.stream()
+                        .sorted(Comparator.comparingInt(severity -> WORST_FIRST.indexOf(severity.value())))
+                        .toList());
+    }
+
+    @Test
+    void blockingPullsOutTheOnesThatStopTheJob() {
+        KeyingSchedule schedule = force(aGoodSchedule(), "AB2", "620446");
+        assertThat(Validation.blocking(Validation.review(schedule))).hasSize(1);
+        assertThat(Validation.isBuildable(Validation.review(schedule))).isFalse();
+    }
+
+    @Test
+    void aFindingRendersFlatForTheReport() {
+        KeyingSchedule schedule = force(aGoodSchedule(), "AB2", "620446");
+        Map<String, Object> rendered = Validation.duplicateCuts(schedule).get(0).asDict();
+        assertThat(rendered).containsEntry("code", "duplicate_cut");
+        assertThat(rendered).containsEntry("severity", "blocking");
+        assertThat(rendered).containsEntry("symbol", "AB2");
+    }
+
+    @Test
+    void aFindingWithoutASymbolLeavesItOut() {
+        Map<String, Object> rendered = Validation.crowdedChambers(aGoodSchedule(), List.of(crowdedKeys()), 2)
+                .get(0)
+                .asDict();
+        assertThat(rendered).doesNotContainKey("symbol");
+    }
+}
